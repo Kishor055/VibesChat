@@ -8,7 +8,7 @@ import { PostFeed } from '@/components/chat/post-feed';
 import { Loader2, Globe, MessageCircle, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export default function PulseTalkApp() {
+export default function NovaPulseApp() {
   const { profile, loading } = useAuth();
   const [activeRoomId, setActiveRoomId] = useState('general');
   const [activeView, setActiveView] = useState<'chat' | 'feed'>('chat');
@@ -22,7 +22,7 @@ export default function PulseTalkApp() {
     return (
       <div className="h-screen w-full flex flex-col items-center justify-center bg-[#0D0B14]">
          <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center mb-6 shadow-2xl shadow-primary/40 animate-pulse">
-            <span className="text-white font-bold text-3xl">P</span>
+            <span className="text-white font-bold text-3xl">N</span>
          </div>
          <Loader2 className="w-6 h-6 animate-spin text-primary/60" />
       </div>
@@ -96,7 +96,7 @@ export default function PulseTalkApp() {
                     </div>
                     <div className="flex justify-between items-center text-xs">
                       <span className="text-muted-foreground">Protocol</span>
-                      <span className="text-accent font-mono">v4.2-Pulse</span>
+                      <span className="text-accent font-mono">v5.0-Nova</span>
                     </div>
                   </div>
                 </div>

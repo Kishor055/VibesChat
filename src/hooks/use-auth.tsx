@@ -27,6 +27,8 @@ const AuthContext = createContext<AuthContextType>({
   updateProfile: () => {},
 });
 
+const STORAGE_KEY = 'novapulse_guest_profile';
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -36,7 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setMounted(true);
     
     const initializeGuest = async () => {
-      const savedProfileStr = localStorage.getItem('pulsetalk_guest_profile');
+      const savedProfileStr = localStorage.getItem(STORAGE_KEY);
       let currentProfile: UserProfile;
 
       if (savedProfileStr) {
@@ -46,19 +48,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         currentProfile = {
           uid,
           name: 'Cosmic Traveler',
-          email: `${uid}@pulsetalk.io`,
+          email: `${uid}@novapulse.io`,
           avatar: `https://picsum.photos/seed/${uid}/200/200`,
           status: 'online',
           lastSeen: new Date().toISOString(),
         };
-        localStorage.setItem('pulsetalk_guest_profile', JSON.stringify(currentProfile));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(currentProfile));
       }
 
-      // Sync with Firestore asynchronously so offline doesn't block local boot
+      // Sync with Firestore asynchronously
       const syncWithFirestore = async () => {
         try {
           const userDocRef = doc(db, 'users', currentProfile.uid);
-          const userSnap = await getDoc(userDocRef).catch(() => null); // Fail silently if offline
+          const userSnap = await getDoc(userDocRef).catch(() => null);
           
           if (!userSnap || !userSnap.exists()) {
             setDoc(userDocRef, {
@@ -72,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             });
           }
         } catch (e) {
-          // Silent catch for background sync errors
+          // Silent catch
         }
       };
 
@@ -88,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!profile) return;
     const updated = { ...profile, ...data };
     setProfile(updated);
-    localStorage.setItem('pulsetalk_guest_profile', JSON.stringify(updated));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
     
     // Sync to Firestore non-blockingly
     const userDocRef = doc(db, 'users', profile.uid);
@@ -96,7 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ...data,
       lastSeen: serverTimestamp()
     }).catch(() => {
-      // Background sync failures are handled by Firestore's internal queue
+      // Background sync handled by Firestore
     });
   };
 

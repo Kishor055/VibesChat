@@ -70,7 +70,7 @@ export function ChatSidebar({ activeView, onViewChange, activeRoomId, onRoomSele
   const handleCreateRoom = async () => {
     if (!newRoomName.trim()) return;
     try {
-      await addDoc(collection(db, 'rooms'), {
+      addDoc(collection(db, 'rooms'), {
         name: newRoomName.trim(),
         type: 'group',
         createdAt: serverTimestamp(),
@@ -79,7 +79,7 @@ export function ChatSidebar({ activeView, onViewChange, activeRoomId, onRoomSele
       setNewRoomName('');
       setIsDialogOpen(false);
     } catch (e) {
-      console.error("Error creating room:", e);
+      // Background handling
     }
   };
 
@@ -98,9 +98,9 @@ export function ChatSidebar({ activeView, onViewChange, activeRoomId, onRoomSele
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-white font-bold text-xl">P</span>
+              <span className="text-white font-bold text-xl">N</span>
             </div>
-            <h1 className="font-headline font-bold text-xl tracking-tight">PulseTalk</h1>
+            <h1 className="font-headline font-bold text-xl tracking-tight">NovaPulse</h1>
           </div>
           
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -159,6 +159,7 @@ export function ChatSidebar({ activeView, onViewChange, activeRoomId, onRoomSele
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9 bg-white/5 border-white/10 focus:ring-primary/50"
+            suppressHydrationWarning
           />
         </div>
       </div>
@@ -222,6 +223,7 @@ export function ChatSidebar({ activeView, onViewChange, activeRoomId, onRoomSele
                     onChange={(e) => setTempName(e.target.value)} 
                     className="h-7 text-xs bg-white/10 border-none"
                     autoFocus
+                    suppressHydrationWarning
                   />
                   <Button size="icon" variant="ghost" className="h-6 w-6" onClick={saveProfile}>
                     <Check className="w-3 h-3 text-green-500" />

@@ -1,11 +1,10 @@
-
 import type {Metadata} from 'next';
 import './globals.css';
 import { AuthProvider } from '@/hooks/use-auth';
 import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
-  title: 'PulseTalk | Cosmic Real-Time Communication',
+  title: 'NovaPulse | Cosmic Real-Time Communication',
   description: 'Enterprise-grade real-time messaging with AI assistance.',
 };
 

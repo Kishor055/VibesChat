@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -52,7 +53,6 @@ export function PostFeed() {
       const result = await generateCosmicMedia({ prompt: newCaption.trim() });
       
       if (result && result.mediaUrl) {
-        // Initiate background write to Firestore
         const postsRef = collection(db, 'posts');
         addDoc(postsRef, {
           authorId: profile.uid,
@@ -95,9 +95,8 @@ export function PostFeed() {
   );
 
   return (
-    <div className="flex-1 overflow-y-auto p-6 space-y-8 bg-background/20 scroll-smooth">
+    <div className="flex-1 overflow-y-auto p-6 space-y-8 bg-background/20 scroll-smooth" suppressHydrationWarning>
       <div className="max-w-2xl mx-auto space-y-8">
-        {/* Create Post Section */}
         <Card className="glass-card border-primary/20 p-4 animate-in fade-in slide-in-from-top-4 duration-500">
           <div className="flex gap-4">
             <Avatar className="w-10 h-10 ring-2 ring-primary/20">
@@ -138,7 +137,6 @@ export function PostFeed() {
           </div>
         </Card>
 
-        {/* Feed Posts */}
         <div className="space-y-8 pb-12">
           <AnimatePresence mode="popLayout">
             {posts.map((post) => (

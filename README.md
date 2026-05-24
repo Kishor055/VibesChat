@@ -1,4 +1,5 @@
-# PulseTalk | Cosmic Real-Time Hybrid Platform
+
+# PulseTalk | Cosmic Real-Time Communication Platform
 
 PulseTalk is an enterprise-grade, high-performance real-time messaging and social hybrid platform built with a futuristic cosmic aesthetic. It combines the immediacy of real-time chat with a visual "Cosmic Feed" powered by generative AI.
 
@@ -7,11 +8,11 @@ PulseTalk is an enterprise-grade, high-performance real-time messaging and socia
 PulseTalk leverages a cutting-edge serverless architecture optimized for low latency and high scalability.
 
 - **Frontend**: React 19 / Next.js 15 (App Router)
-- **Real-Time Engine**: Firebase Firestore with persistent listeners
-- **AI Integration**: Google Genkit + Gemini 2.5 Flash + Imagen 3
-- **Identity**: Persistent Guest Identity system with local persistence and Firestore sync
-- **Styling**: Tailwind CSS with custom Glassmorphism primitives
-- **Animations**: Framer Motion for high-fidelity interactive feedback
+- **Real-Time Engine**: Firebase Firestore with persistent listeners for messages and social interactions.
+- **AI Integration**: Google Genkit + Gemini 2.5 Flash + Imagen 3 for visual manifestations and smart reply suggestions.
+- **Identity**: Persistent Guest Identity system with local persistence and Firestore synchronization.
+- **Styling**: Tailwind CSS with custom Glassmorphism primitives and a specialized HSL theme.
+- **Animations**: Framer Motion for high-fidelity interactive feedback and smooth state transitions.
 
 ## ✨ Core Features
 
@@ -22,24 +23,24 @@ PulseTalk leverages a cutting-edge serverless architecture optimized for low lat
 
 ### 2. High-Performance Chat
 - **Real-Time Channels**: Scalable messaging via Firestore, supporting instant delivery and global presence.
-- **Smart Replies**: Context-aware AI suggestions powered by Gemini 2.5, enabling rapid communication.
-- **In-Chat Search**: Instant filtering of transmissions using full-text search primitives.
+- **Smart Replies**: Context-aware AI suggestions powered by Gemini 2.5, enabling rapid communication based on previous messages.
+- **In-Chat Search**: Instant filtering of transmissions using local search primitives over the real-time message stream.
 
 ### 3. Identity & Presence
 - **Zero-Friction Entry**: Persistent guest identities allow immediate network access without traditional login gates.
-- **Live Indicators**: Real-time online/offline status reflecting network activity.
+- **Live Indicators**: Real-time online/offline status reflecting network activity synced via Firestore.
 
 ## 🛠 Technical Specifications
 
 ### Hydration Resilience
-The platform utilizes a strict `mounted` state pattern across all client components to resolve the challenges of SSR in Next.js. This ensures that browser-specific data (like local time formatting or browser-injected attributes) does not trigger hydration mismatches.
+The platform utilizes a strict `mounted` state pattern across all client components to resolve the challenges of SSR in Next.js. This ensures that browser-specific data (like local time formatting or browser-injected attributes from extensions) does not trigger hydration mismatches.
 
 ### Optimized Mutations
-Following enterprise patterns, Firestore mutations (`setDoc`, `addDoc`) are executed asynchronously to prioritize UI responsiveness (Optimistic Updates). Errors are handled centrally via a dedicated event emitter architecture.
+Following enterprise patterns, Firestore mutations (`addDoc`, `updateDoc`) are executed to prioritize UI responsiveness. The system leverages Firestore's internal queuing and local cache for optimistic UI updates.
 
 ### AI Flows (Genkit)
-- `suggestSmartReplies`: Analyzes conversation context to provide 3-5 relevant suggestions.
-- `generateCosmicMedia`: Transforms text prompts into professional-grade space digital art.
+- `suggestSmartReplies`: Analyzes conversation context to provide relevant quick-response options.
+- `generateCosmicMedia`: Transforms text prompts into professional-grade space digital art using Imagen 3.
 
 ---
 

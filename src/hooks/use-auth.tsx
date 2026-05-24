@@ -1,20 +1,9 @@
 
 "use client";
 
-import React, { useState, useEffect, createContext, useContext } from 'react';
-import { 
-  onAuthStateChanged, 
-  User as FirebaseUser,
-  signOut as firebaseSignOut,
-  GoogleAuthProvider,
-  signInWithRedirect,
-  getRedirectResult,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-} from 'firebase/auth';
-import { auth, db } from '@/firebase/config';
-import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import React, { createContext, useContext, ReactNode } from 'react';
 
+// Simplified user profile for the guest experience
 interface UserProfile {
   uid: string;
   name: string;
@@ -25,7 +14,7 @@ interface UserProfile {
 }
 
 interface AuthContextType {
-  user: FirebaseUser | null;
+  user: any | null;
   profile: UserProfile | null;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
@@ -34,102 +23,37 @@ interface AuthContextType {
   signUpWithEmail: (email: string, pass: string) => Promise<void>;
 }
 
+// Create a static Guest Profile
+const GUEST_PROFILE: UserProfile = {
+  uid: 'guest-user-123',
+  name: 'Cosmic Traveler',
+  email: 'guest@pulsetalk.io',
+  avatar: 'https://picsum.photos/seed/guest/200/200',
+  status: 'online',
+  lastSeen: new Date(),
+};
+
 const AuthContext = createContext<AuthContextType>({
-  user: null,
-  profile: null,
-  loading: true,
+  user: { uid: 'guest-user-123' },
+  profile: GUEST_PROFILE,
+  loading: false,
   signInWithGoogle: async () => {},
   signOut: async () => {},
   signInWithEmail: async () => {},
   signUpWithEmail: async () => {},
 });
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    // Handle the redirect result for Google Sign-In
-    getRedirectResult(auth).catch((error) => {
-      console.error("Error handling Google Redirect result:", error);
-    });
-
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
-      if (currentUser) {
-        const userDoc = doc(db, 'users', currentUser.uid);
-        try {
-          const snap = await getDoc(userDoc);
-          
-          if (snap.exists()) {
-            const data = snap.data() as UserProfile;
-            setProfile(data);
-            updateDoc(userDoc, {
-              status: 'online',
-              lastSeen: serverTimestamp(),
-            });
-          } else {
-            const newProfile: UserProfile = {
-              uid: currentUser.uid,
-              name: currentUser.displayName || currentUser.email?.split('@')[0] || 'Anonymous',
-              email: currentUser.email || '',
-              avatar: currentUser.photoURL || `https://picsum.photos/seed/${currentUser.uid}/200/200`,
-              status: 'online',
-              lastSeen: serverTimestamp(),
-            };
-            await setDoc(userDoc, newProfile);
-            setProfile(newProfile);
-          }
-        } catch (error) {
-          console.error("Error fetching/setting user profile:", error);
-        }
-      } else {
-        setProfile(null);
-      }
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  const signInWithGoogle = async () => {
-    const provider = new GoogleAuthProvider();
-    // Using redirect instead of popup to bypass popup blockers
-    await signInWithRedirect(auth, provider);
-  };
-
-  const signInWithEmail = async (email: string, pass: string) => {
-    await signInWithEmailAndPassword(auth, email, pass);
-  };
-
-  const signUpWithEmail = async (email: string, pass: string) => {
-    await createUserWithEmailAndPassword(auth, email, pass);
-  };
-
-  const signOut = async () => {
-    if (user) {
-      try {
-        await updateDoc(doc(db, 'users', user.uid), {
-          status: 'offline',
-          lastSeen: serverTimestamp(),
-        });
-      } catch (e) {
-        console.error("Error updating status during sign out:", e);
-      }
-    }
-    await firebaseSignOut(auth);
-  };
-
+export function AuthProvider({ children }: { children: ReactNode }) {
+  // We provide the Guest context directly to remove login barriers
   return (
     <AuthContext.Provider value={{ 
-      user, 
-      profile, 
-      loading, 
-      signOut, 
-      signInWithGoogle, 
-      signInWithEmail, 
-      signUpWithEmail 
+      user: { uid: 'guest-user-123' }, 
+      profile: GUEST_PROFILE, 
+      loading: false, 
+      signOut: async () => { console.log('Guest logout requested'); }, 
+      signInWithGoogle: async () => {}, 
+      signInWithEmail: async () => {}, 
+      signUpWithEmail: async () => {} 
     }}>
       {children}
     </AuthContext.Provider>

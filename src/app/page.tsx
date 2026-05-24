@@ -2,24 +2,21 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { ChatSidebar } from '@/components/chat/sidebar';
 import { MessageArea } from '@/components/chat/message-area';
 import { Loader2 } from 'lucide-react';
 
 export default function PulseTalkApp() {
-  const { user, profile, loading } = useAuth();
-  const router = useRouter();
+  const { profile, loading } = useAuth();
   const [activeRoomId, setActiveRoomId] = useState('general');
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    if (!loading && !user) {
-      router.push('/auth');
-    }
-  }, [user, loading, router]);
+    setMounted(true);
+  }, []);
 
-  if (loading || !user) {
+  if (!mounted || loading) {
     return (
       <div className="h-screen w-full flex flex-col items-center justify-center bg-[#0D0B14]">
          <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center mb-6 shadow-2xl shadow-primary/40 animate-pulse">
@@ -31,7 +28,7 @@ export default function PulseTalkApp() {
   }
 
   return (
-    <main className="flex h-screen w-full overflow-hidden bg-[#0D0B14]">
+    <main className="flex h-screen w-full overflow-hidden bg-[#0D0B14]" suppressHydrationWarning>
       {/* Dynamic Cosmic Background Elements */}
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-primary/10 rounded-full blur-[120px] animate-pulse" />
@@ -57,6 +54,7 @@ export default function PulseTalkApp() {
                    src={`https://picsum.photos/seed/${activeRoomId}/400/400`} 
                    alt="Room"
                    className="w-full h-full object-cover rounded-[1.25rem]"
+                   data-ai-hint="room avatar"
                  />
                </div>
                <h3 className="font-bold text-lg">Room Details</h3>
@@ -84,7 +82,7 @@ export default function PulseTalkApp() {
                   <div className="grid grid-cols-3 gap-2">
                     {[1, 2, 3, 4, 5, 6].map(i => (
                       <div key={i} className="aspect-square rounded-lg glass border-white/5 overflow-hidden hover:scale-105 transition-transform cursor-pointer">
-                        <img src={`https://picsum.photos/seed/media${i}/200/200`} className="w-full h-full object-cover opacity-60 hover:opacity-100" alt="media" />
+                        <img src={`https://picsum.photos/seed/media${i}/200/200`} className="w-full h-full object-cover opacity-60 hover:opacity-100" alt="media" data-ai-hint="chat media" />
                       </div>
                     ))}
                   </div>

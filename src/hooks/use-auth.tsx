@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { createContext, useContext, ReactNode, useState, useEffect } from 'react';
@@ -55,28 +54,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.setItem('pulsetalk_guest_profile', JSON.stringify(currentProfile));
       }
 
-      // Sync with Firestore for presence and profile existence
-      try {
-        const userDocRef = doc(db, 'users', currentProfile.uid);
-        const userSnap = await getDoc(userDocRef);
-        
-        if (!userSnap.exists()) {
-          await setDoc(userDocRef, {
-            ...currentProfile,
-            lastSeen: serverTimestamp()
-          });
-        } else {
-          await updateDoc(userDocRef, {
-            status: 'online',
-            lastSeen: serverTimestamp()
-          });
+      // Sync with Firestore asynchronously so offline doesn't block local boot
+      const syncWithFirestore = async () => {
+        try {
+          const userDocRef = doc(db, 'users', currentProfile.uid);
+          const userSnap = await getDoc(userDocRef).catch(() => null); // Fail silently if offline
+          
+          if (!userSnap || !userSnap.exists()) {
+            setDoc(userDocRef, {
+              ...currentProfile,
+              lastSeen: serverTimestamp()
+            });
+          } else {
+            updateDoc(userDocRef, {
+              status: 'online',
+              lastSeen: serverTimestamp()
+            });
+          }
+        } catch (e) {
+          // Silent catch for background sync errors
         }
-      } catch (e) {
-        console.error("Presence sync failed", e);
-      }
+      };
 
       setProfile(currentProfile);
       setLoading(false);
+      syncWithFirestore();
     };
 
     initializeGuest();
@@ -88,12 +90,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(updated);
     localStorage.setItem('pulsetalk_guest_profile', JSON.stringify(updated));
     
-    // Sync to Firestore
+    // Sync to Firestore non-blockingly
     const userDocRef = doc(db, 'users', profile.uid);
     updateDoc(userDocRef, {
       ...data,
       lastSeen: serverTimestamp()
-    }).catch(e => console.error("Profile sync failed", e));
+    }).catch(() => {
+      // Background sync failures are handled by Firestore's internal queue
+    });
   };
 
   const value = {

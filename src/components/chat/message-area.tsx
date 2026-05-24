@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Send, Smile, Paperclip, MoreVertical, Search, Phone, Video, Loader2, X, Heart } from 'lucide-react';
+import { Send, Smile, Paperclip, MoreVertical, Search, Loader2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SmartReplies } from './smart-replies';
 import { 
@@ -17,7 +17,6 @@ import {
   onSnapshot, 
   serverTimestamp,
   doc,
-  getDoc,
   updateDoc,
   arrayUnion
 } from 'firebase/firestore';
@@ -44,7 +43,7 @@ export function MessageArea({ roomId }: MessageAreaProps) {
   const { profile } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
-  const [roomName, setRoomName] = useState('Loading...');
+  const [roomName, setRoomName] = useState('Cosmic Channel');
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -59,23 +58,21 @@ export function MessageArea({ roomId }: MessageAreaProps) {
     if (!roomId) return;
 
     setLoading(true);
-    const fetchRoomInfo = async () => {
+
+    // Using onSnapshot for room info is more resilient to offline states than getDoc
+    const roomRef = doc(db, 'rooms', roomId);
+    const unsubscribeRoom = onSnapshot(roomRef, (snapshot) => {
+      if (snapshot.exists()) {
+        setRoomName(snapshot.data().name);
+      } else if (roomId === 'general' || roomId === 'dev-hub') {
+        setRoomName(roomId.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' '));
+      }
+    }, () => {
+      // Fallback on error/offline
       if (roomId === 'general' || roomId === 'dev-hub') {
         setRoomName(roomId.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' '));
-      } else {
-        try {
-          const roomDoc = await getDoc(doc(db, 'rooms', roomId));
-          if (roomDoc.exists()) {
-            setRoomName(roomDoc.data().name);
-          } else {
-            setRoomName('Cosmic Channel');
-          }
-        } catch (e) {
-          setRoomName('Cosmic Channel');
-        }
       }
-    };
-    fetchRoomInfo();
+    });
 
     const q = query(
       collection(db, 'messages'),
@@ -83,16 +80,21 @@ export function MessageArea({ roomId }: MessageAreaProps) {
       orderBy('timestamp', 'asc')
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const unsubscribeMessages = onSnapshot(q, (snapshot) => {
       const msgs: Message[] = [];
       snapshot.forEach((doc) => {
         msgs.push({ id: doc.id, ...doc.data() } as Message);
       });
       setMessages(msgs);
       setLoading(false);
+    }, () => {
+      setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribeRoom();
+      unsubscribeMessages();
+    };
   }, [roomId]);
 
   const handleSendMessage = async (text: string) => {
@@ -101,24 +103,21 @@ export function MessageArea({ roomId }: MessageAreaProps) {
     const messageText = text.trim();
     setInputValue('');
     
-    try {
-      addDoc(collection(db, 'messages'), {
-        senderId: profile.uid,
-        senderName: profile.name,
-        text: messageText,
-        timestamp: serverTimestamp(),
-        roomId,
-        reactions: {}
-      });
-    } catch (err) {
-      console.error("Error sending message:", err);
-    }
+    // Non-blocking mutation for offline responsiveness
+    addDoc(collection(db, 'messages'), {
+      senderId: profile.uid,
+      senderName: profile.name,
+      text: messageText,
+      timestamp: serverTimestamp(),
+      roomId,
+      reactions: {}
+    });
   };
 
   const handleAddReaction = async (messageId: string, emoji: string) => {
     if (!profile) return;
     const msgRef = doc(db, 'messages', messageId);
-    await updateDoc(msgRef, {
+    updateDoc(msgRef, {
       [`reactions.${emoji}`]: arrayUnion(profile.uid)
     });
   };
@@ -129,6 +128,8 @@ export function MessageArea({ roomId }: MessageAreaProps) {
     }
   }, [messages, isSearching]);
 
+  if (!mounted) return null;
+
   const filteredMessages = messages.filter(m => 
     m.text.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -136,7 +137,7 @@ export function MessageArea({ roomId }: MessageAreaProps) {
   const lastReceivedMessage = [...messages].reverse().find(m => m.senderId !== profile?.uid);
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-background/40">
+    <div className="flex-1 flex flex-col h-full bg-background/40" suppressHydrationWarning>
       <div className="h-16 flex items-center justify-between px-6 glass border-b border-white/5 z-10">
         <div className="flex items-center gap-3">
           <Avatar className="w-10 h-10 ring-2 ring-primary/20">
@@ -224,7 +225,7 @@ export function MessageArea({ roomId }: MessageAreaProps) {
                       ))}
                     </div>
 
-                    {/* Emoji Picker Popover (Hover) */}
+                    {/* Emoji Picker Popover */}
                     <div className={cn(
                       "absolute top-0 opacity-0 group-hover:opacity-100 transition-opacity z-20",
                       isMe ? "-left-12" : "-right-12"
@@ -244,9 +245,9 @@ export function MessageArea({ roomId }: MessageAreaProps) {
                   </div>
 
                   <span className={cn("text-[10px] text-muted-foreground mt-1", isMe ? "text-right" : "text-left")}>
-                    {mounted && msg.timestamp?.toDate 
+                    {msg.timestamp?.toDate 
                       ? new Date(msg.timestamp.toDate()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
-                      : '...'}
+                      : 'Syncing...'}
                   </span>
                 </div>
               </div>
@@ -273,6 +274,7 @@ export function MessageArea({ roomId }: MessageAreaProps) {
             onKeyDown={(e) => e.key === 'Enter' && handleSendMessage(inputValue)}
             placeholder={`Message #${roomName.toLowerCase().replace(/\s/g, '-')}`} 
             className="flex-1 bg-transparent border-none shadow-none focus-visible:ring-0 text-sm h-10"
+            suppressHydrationWarning
           />
           <Button variant="ghost" size="icon" className="text-muted-foreground hover:bg-white/5">
             <Smile className="w-5 h-5" />
@@ -281,6 +283,7 @@ export function MessageArea({ roomId }: MessageAreaProps) {
             onClick={() => handleSendMessage(inputValue)}
             disabled={!inputValue.trim()}
             className="bg-primary hover:bg-primary/90 text-white rounded-xl px-4 h-10"
+            suppressHydrationWarning
           >
             <Send className="w-4 h-4 mr-2" />
             Send

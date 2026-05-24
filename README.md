@@ -32,8 +32,11 @@ PulseTalk leverages a cutting-edge serverless architecture optimized for low lat
 
 ## 🛠 Technical Specifications
 
+### Offline Resilience
+The platform utilizes **Firestore Persistent Listeners** (`onSnapshot`) for all critical data paths. This ensures that the application remains functional during network interruptions, leveraging local caching and background synchronization once connectivity is restored.
+
 ### Hydration Resilience
-The platform utilizes a strict `mounted` state pattern across all client components to resolve the challenges of SSR in Next.js. This ensures that browser-specific data (like local time formatting or browser-injected attributes from extensions) does not trigger hydration mismatches.
+The platform utilizes a strict `mounted` state pattern across all client components to resolve the challenges of SSR in Next.js. This ensures that browser-specific data (like local time formatting or browser-injected attributes) does not trigger hydration mismatches.
 
 ### Optimized Mutations
 Following enterprise patterns, Firestore mutations (`addDoc`, `updateDoc`) are executed to prioritize UI responsiveness. The system leverages Firestore's internal queuing and local cache for optimistic UI updates.

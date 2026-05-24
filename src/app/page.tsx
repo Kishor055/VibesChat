@@ -1,15 +1,34 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/use-auth';
 import { ChatSidebar } from '@/components/chat/sidebar';
 import { MessageArea } from '@/components/chat/message-area';
-import { INITIAL_MESSAGES, MOCK_ROOMS } from '@/lib/mock-data';
+import { Loader2 } from 'lucide-react';
 
 export default function PulseTalkApp() {
-  const [activeRoomId, setActiveRoomId] = useState(MOCK_ROOMS[1].id); // Default to first DM
+  const { user, profile, loading } = useAuth();
+  const router = useRouter();
+  const [activeRoomId, setActiveRoomId] = useState('general');
 
-  const activeRoom = MOCK_ROOMS.find(r => r.id === activeRoomId) || { name: 'New Message', id: activeRoomId };
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/auth');
+    }
+  }, [user, loading, router]);
+
+  if (loading || !user) {
+    return (
+      <div className="h-screen w-full flex flex-col items-center justify-center bg-[#0D0B14]">
+         <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center mb-6 shadow-2xl shadow-primary/40 animate-pulse">
+            <span className="text-white font-bold text-3xl">P</span>
+         </div>
+         <Loader2 className="w-6 h-6 animate-spin text-primary/60" />
+      </div>
+    );
+  }
 
   return (
     <main className="flex h-screen w-full overflow-hidden bg-[#0D0B14]">
@@ -25,11 +44,9 @@ export default function PulseTalkApp() {
           onRoomSelect={setActiveRoomId} 
         />
         
-        <div className="flex-1 relative">
+        <div className="flex-1 relative flex">
           <MessageArea 
             roomId={activeRoomId} 
-            roomName={activeRoom.name}
-            initialMessages={INITIAL_MESSAGES.filter(m => m.roomId === activeRoomId)}
           />
           
           {/* Presence / Room Info Right Sidebar (Hidden on mobile) */}
@@ -37,25 +54,33 @@ export default function PulseTalkApp() {
              <div className="text-center mb-8">
                <div className="w-24 h-24 mx-auto rounded-3xl overflow-hidden glass border-2 border-white/10 p-1 mb-4">
                  <img 
-                   src={`https://picsum.photos/seed/${activeRoom.name}/400/400`} 
-                   alt={activeRoom.name}
+                   src={`https://picsum.photos/seed/${activeRoomId}/400/400`} 
+                   alt="Room"
                    className="w-full h-full object-cover rounded-[1.25rem]"
                  />
                </div>
-               <h3 className="font-bold text-lg">{activeRoom.name}</h3>
-               <p className="text-xs text-muted-foreground">Created Aug 2023</p>
+               <h3 className="font-bold text-lg">Room Details</h3>
+               <p className="text-xs text-muted-foreground">PulseTalk Cosmic Network</p>
              </div>
 
              <div className="space-y-6">
                 <div>
-                  <h4 className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest mb-3">Room Information</h4>
+                  <h4 className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest mb-3">Workspace Information</h4>
                   <p className="text-sm text-muted-foreground leading-relaxed">
-                    Welcome to the {activeRoom.name} workspace. This channel is for synchronizing real-time communications and sharing updates.
+                    You are connected to the encrypted cosmic channel. All communications are secured with end-to-end Firebase security rules.
                   </p>
                 </div>
 
                 <div>
-                  <h4 className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest mb-3">Files & Media</h4>
+                  <h4 className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest mb-3">Network Status</h4>
+                  <div className="flex items-center gap-2 text-xs text-green-500 font-medium">
+                    <span className="w-2 h-2 rounded-full bg-green-500 animate-ping" />
+                    Secure Real-time Link Active
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest mb-3">Recent Media</h4>
                   <div className="grid grid-cols-3 gap-2">
                     {[1, 2, 3, 4, 5, 6].map(i => (
                       <div key={i} className="aspect-square rounded-lg glass border-white/5 overflow-hidden hover:scale-105 transition-transform cursor-pointer">
@@ -63,7 +88,6 @@ export default function PulseTalkApp() {
                       </div>
                     ))}
                   </div>
-                  <button className="w-full mt-3 text-xs text-primary font-medium hover:underline text-left">View all files</button>
                 </div>
              </div>
           </div>

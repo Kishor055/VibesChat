@@ -2,39 +2,98 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Message, User, CURRENT_USER, MOCK_USERS } from '@/lib/mock-data';
+import { useAuth } from '@/hooks/use-auth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
-import { Send, Smile, Paperclip, MoreVertical, Phone, Video } from 'lucide-react';
+import { Send, Smile, Paperclip, MoreVertical, Phone, Video, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SmartReplies } from './smart-replies';
+import { 
+  collection, 
+  addDoc, 
+  query, 
+  where, 
+  orderBy, 
+  onSnapshot, 
+  serverTimestamp,
+  doc,
+  getDoc
+} from 'firebase/firestore';
+import { db } from '@/firebase/config';
+
+interface Message {
+  id: string;
+  senderId: string;
+  text: string;
+  timestamp: any;
+  roomId: string;
+}
 
 interface MessageAreaProps {
   roomId: string;
-  roomName: string;
-  initialMessages: Message[];
 }
 
-export function MessageArea({ roomId, roomName, initialMessages }: MessageAreaProps) {
-  const [messages, setMessages] = useState<Message[]>(initialMessages);
+export function MessageArea({ roomId }: MessageAreaProps) {
+  const { profile } = useAuth();
+  const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
+  const [roomName, setRoomName] = useState('Loading...');
+  const [loading, setLoading] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const handleSendMessage = (text: string) => {
-    if (!text.trim()) return;
-    
-    const newMessage: Message = {
-      id: Math.random().toString(36).substr(2, 9),
-      senderId: CURRENT_USER.id,
-      text,
-      timestamp: new Date().toISOString(),
-      roomId
+  useEffect(() => {
+    if (!roomId) return;
+
+    setLoading(true);
+    // Determine room info (could be a user or a group)
+    const fetchRoomInfo = async () => {
+      if (roomId === 'general' || roomId === 'random') {
+        setRoomName(roomId.charAt(0).toUpperCase() + roomId.slice(1));
+      } else {
+        const userDoc = await getDoc(doc(db, 'users', roomId));
+        if (userDoc.exists()) {
+          setRoomName(userDoc.data().name);
+        }
+      }
     };
+    fetchRoomInfo();
+
+    // Listen for messages
+    // Note: For private messages, we'd need a more complex query joining roomId parts,
+    // but for simplicity we'll use aroomId as the direct filter.
+    const q = query(
+      collection(db, 'messages'),
+      where('roomId', '==', roomId),
+      orderBy('timestamp', 'asc')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const msgs: Message[] = [];
+      snapshot.forEach((doc) => {
+        msgs.push({ id: doc.id, ...doc.data() } as Message);
+      });
+      setMessages(msgs);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [roomId]);
+
+  const handleSendMessage = async (text: string) => {
+    if (!text.trim() || !profile) return;
     
-    setMessages([...messages, newMessage]);
     setInputValue('');
+    try {
+      await addDoc(collection(db, 'messages'), {
+        senderId: profile.uid,
+        text: text.trim(),
+        timestamp: serverTimestamp(),
+        roomId
+      });
+    } catch (err) {
+      console.error("Error sending message:", err);
+    }
   };
 
   useEffect(() => {
@@ -43,7 +102,7 @@ export function MessageArea({ roomId, roomName, initialMessages }: MessageAreaPr
     }
   }, [messages]);
 
-  const lastReceivedMessage = [...messages].reverse().find(m => m.senderId !== CURRENT_USER.id);
+  const lastReceivedMessage = [...messages].reverse().find(m => m.senderId !== profile?.uid);
 
   return (
     <div className="flex-1 flex flex-col h-full bg-background/40">
@@ -51,7 +110,7 @@ export function MessageArea({ roomId, roomName, initialMessages }: MessageAreaPr
       <div className="h-16 flex items-center justify-between px-6 glass border-b border-white/5 z-10">
         <div className="flex items-center gap-3">
           <Avatar className="w-10 h-10 ring-2 ring-primary/20">
-            <AvatarImage src={`https://picsum.photos/seed/${roomName}/200/200`} />
+            <AvatarImage src={`https://picsum.photos/seed/${roomId}/200/200`} />
             <AvatarFallback>{roomName[0]}</AvatarFallback>
           </Avatar>
           <div>
@@ -77,34 +136,40 @@ export function MessageArea({ roomId, roomName, initialMessages }: MessageAreaPr
 
       {/* Messages Scroll Area */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-6">
-        {messages.map((msg, index) => {
-          const isMe = msg.senderId === CURRENT_USER.id;
-          const sender = MOCK_USERS.find(u => u.id === msg.senderId) || CURRENT_USER;
-          
-          return (
-            <div key={msg.id} className={cn("flex gap-3 max-w-[80%]", isMe ? "ml-auto flex-row-reverse" : "mr-auto")}>
-              {!isMe && (
-                <Avatar className="w-8 h-8 mt-auto">
-                  <AvatarImage src={sender.avatar} />
-                  <AvatarFallback>{sender.name[0]}</AvatarFallback>
-                </Avatar>
-              )}
-              <div className="flex flex-col gap-1">
-                <div className={cn(
-                  "px-4 py-2.5 rounded-2xl text-sm shadow-sm transition-all",
-                  isMe 
-                    ? "bg-primary text-white rounded-br-none" 
-                    : "glass-card text-foreground rounded-bl-none"
-                )}>
-                  {msg.text}
+        {loading ? (
+          <div className="h-full flex flex-col items-center justify-center space-y-4">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">Syncing cosmic data...</p>
+          </div>
+        ) : (
+          messages.map((msg) => {
+            const isMe = msg.senderId === profile?.uid;
+            
+            return (
+              <div key={msg.id} className={cn("flex gap-3 max-w-[80%]", isMe ? "ml-auto flex-row-reverse" : "mr-auto")}>
+                {!isMe && (
+                  <Avatar className="w-8 h-8 mt-auto">
+                    <AvatarImage src={`https://picsum.photos/seed/${msg.senderId}/200/200`} />
+                    <AvatarFallback>?</AvatarFallback>
+                  </Avatar>
+                )}
+                <div className="flex flex-col gap-1">
+                  <div className={cn(
+                    "px-4 py-2.5 rounded-2xl text-sm shadow-sm transition-all",
+                    isMe 
+                      ? "bg-primary text-white rounded-br-none" 
+                      : "glass-card text-foreground rounded-bl-none"
+                  )}>
+                    {msg.text}
+                  </div>
+                  <span className={cn("text-[10px] text-muted-foreground mt-1", isMe ? "text-right" : "text-left")}>
+                    {msg.timestamp?.toDate ? new Date(msg.timestamp.toDate()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '...'}
+                  </span>
                 </div>
-                <span className={cn("text-[10px] text-muted-foreground mt-1", isMe ? "text-right" : "text-left")}>
-                  {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </span>
               </div>
-            </div>
-          );
-        })}
+            );
+          })
+        )}
       </div>
 
       {/* Input Area */}
@@ -132,6 +197,7 @@ export function MessageArea({ roomId, roomName, initialMessages }: MessageAreaPr
           </Button>
           <Button 
             onClick={() => handleSendMessage(inputValue)}
+            disabled={!inputValue.trim()}
             className="bg-primary hover:bg-primary/90 text-white rounded-xl px-4 h-10"
           >
             <Send className="w-4 h-4 mr-2" />

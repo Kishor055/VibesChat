@@ -1,21 +1,67 @@
 
 "use client";
 
-import React from 'react';
-import { User, Room, MOCK_USERS, MOCK_ROOMS, CURRENT_USER } from '@/lib/mock-data';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/hooks/use-auth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Hash, MessageSquare, Plus, Settings, Search, LogOut } from 'lucide-react';
+import { Hash, Plus, Settings, Search, LogOut, User as UserIcon } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { collection, query, onSnapshot, where } from 'firebase/firestore';
+import { db } from '@/firebase/config';
 
 interface ChatSidebarProps {
   activeRoomId: string;
   onRoomSelect: (roomId: string) => void;
 }
 
+interface FirestoreUser {
+  uid: string;
+  name: string;
+  avatar: string;
+  status: 'online' | 'offline' | 'away';
+  email: string;
+}
+
+interface Room {
+  id: string;
+  name: string;
+  type: 'group' | 'private';
+}
+
 export function ChatSidebar({ activeRoomId, onRoomSelect }: ChatSidebarProps) {
+  const { profile, signOut } = useAuth();
+  const [users, setUsers] = useState<FirestoreUser[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([
+    { id: 'general', name: 'General', type: 'group' },
+    { id: 'random', name: 'Random', type: 'group' }
+  ]);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    // Listen for users
+    const q = query(collection(db, 'users'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const usersData: FirestoreUser[] = [];
+      snapshot.forEach((doc) => {
+        const data = doc.data() as FirestoreUser;
+        if (data.uid !== profile?.uid) {
+          usersData.push(data);
+        }
+      });
+      setUsers(usersData);
+    });
+
+    return () => unsubscribe();
+  }, [profile?.uid]);
+
+  const filteredUsers = users.filter(u => 
+    u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    u.email.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <div className="w-80 h-full flex flex-col glass-darker border-r border-white/5">
       <div className="p-6 border-b border-white/5">
@@ -35,6 +81,8 @@ export function ChatSidebar({ activeRoomId, onRoomSelect }: ChatSidebarProps) {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input 
             placeholder="Search messages..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9 bg-white/5 border-white/10 focus:ring-primary/50"
           />
         </div>
@@ -50,7 +98,7 @@ export function ChatSidebar({ activeRoomId, onRoomSelect }: ChatSidebarProps) {
               </Button>
             </div>
             <div className="space-y-1">
-              {MOCK_ROOMS.filter(r => r.type === 'group').map(room => (
+              {rooms.map(room => (
                 <button
                   key={room.id}
                   onClick={() => onRoomSelect(room.id)}
@@ -74,13 +122,13 @@ export function ChatSidebar({ activeRoomId, onRoomSelect }: ChatSidebarProps) {
               </Button>
             </div>
             <div className="space-y-1">
-              {MOCK_USERS.map(user => (
+              {filteredUsers.map(user => (
                 <button
-                  key={user.id}
-                  onClick={() => onRoomSelect(user.id)} // Simulating private room lookup
+                  key={user.uid}
+                  onClick={() => onRoomSelect(user.uid)}
                   className={cn(
                     "w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group",
-                    activeRoomId === user.id ? "bg-primary text-white" : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
+                    activeRoomId === user.uid ? "bg-primary text-white" : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
                   )}
                 >
                   <div className="relative">
@@ -104,14 +152,19 @@ export function ChatSidebar({ activeRoomId, onRoomSelect }: ChatSidebarProps) {
       <div className="p-4 mt-auto border-t border-white/5">
         <div className="flex items-center gap-3 px-3 py-3 glass-card rounded-xl">
           <Avatar className="w-10 h-10 border border-white/10">
-            <AvatarImage src={CURRENT_USER.avatar} />
-            <AvatarFallback>AR</AvatarFallback>
+            <AvatarImage src={profile?.avatar} />
+            <AvatarFallback>{profile?.name?.[0] || '?'}</AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold truncate">{CURRENT_USER.name}</p>
-            <p className="text-xs text-muted-foreground truncate">{CURRENT_USER.email}</p>
+            <p className="text-sm font-semibold truncate">{profile?.name || 'Loading...'}</p>
+            <p className="text-xs text-muted-foreground truncate">{profile?.email}</p>
           </div>
-          <Button variant="ghost" size="icon" className="hover:bg-red-500/10 hover:text-red-500">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => signOut()}
+            className="hover:bg-red-500/10 hover:text-red-500"
+          >
             <LogOut className="w-4 h-4" />
           </Button>
         </div>

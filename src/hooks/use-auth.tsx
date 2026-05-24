@@ -1,9 +1,18 @@
-
 "use client";
 
-import React, { createContext, useContext, ReactNode } from 'react';
+import React, { createContext, useContext, ReactNode, useState, useEffect } from 'react';
+import { 
+  onAuthStateChanged, 
+  User as FirebaseUser,
+  signInWithPopup,
+  GoogleAuthProvider,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut as firebaseSignOut
+} from 'firebase/auth';
+import { auth, db } from '@/firebase/config';
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 
-// Simplified user profile for the guest experience
 interface UserProfile {
   uid: string;
   name: string;
@@ -14,7 +23,7 @@ interface UserProfile {
 }
 
 interface AuthContextType {
-  user: any | null;
+  user: FirebaseUser | null;
   profile: UserProfile | null;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
@@ -23,20 +32,10 @@ interface AuthContextType {
   signUpWithEmail: (email: string, pass: string) => Promise<void>;
 }
 
-// Create a static Guest Profile
-const GUEST_PROFILE: UserProfile = {
-  uid: 'guest-user-123',
-  name: 'Cosmic Traveler',
-  email: 'guest@pulsetalk.io',
-  avatar: 'https://picsum.photos/seed/guest/200/200',
-  status: 'online',
-  lastSeen: new Date(),
-};
-
 const AuthContext = createContext<AuthContextType>({
-  user: { uid: 'guest-user-123' },
-  profile: GUEST_PROFILE,
-  loading: false,
+  user: null,
+  profile: null,
+  loading: true,
   signInWithGoogle: async () => {},
   signOut: async () => {},
   signInWithEmail: async () => {},
@@ -44,16 +43,78 @@ const AuthContext = createContext<AuthContextType>({
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  // We provide the Guest context directly to remove login barriers
+  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      setUser(firebaseUser);
+      
+      if (firebaseUser) {
+        const userDocRef = doc(db, 'users', firebaseUser.uid);
+        const userDoc = await getDoc(userDocRef);
+        
+        if (userDoc.exists()) {
+          const data = userDoc.data() as UserProfile;
+          setProfile(data);
+          updateDoc(userDocRef, {
+            status: 'online',
+            lastSeen: serverTimestamp()
+          });
+        } else {
+          const newProfile: UserProfile = {
+            uid: firebaseUser.uid,
+            name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'New Traveler',
+            email: firebaseUser.email || '',
+            avatar: firebaseUser.photoURL || `https://picsum.photos/seed/${firebaseUser.uid}/200/200`,
+            status: 'online',
+            lastSeen: serverTimestamp(),
+          };
+          await setDoc(userDocRef, newProfile);
+          setProfile(newProfile);
+        }
+      } else {
+        setProfile(null);
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const signInWithGoogle = async () => {
+    const provider = new GoogleAuthProvider();
+    await signInWithPopup(auth, provider);
+  };
+
+  const signInWithEmail = async (email: string, pass: string) => {
+    await signInWithEmailAndPassword(auth, email, pass);
+  };
+
+  const signUpWithEmail = async (email: string, pass: string) => {
+    await createUserWithEmailAndPassword(auth, email, pass);
+  };
+
+  const signOut = async () => {
+    if (user) {
+      await updateDoc(doc(db, 'users', user.uid), {
+        status: 'offline',
+        lastSeen: serverTimestamp()
+      });
+    }
+    await firebaseSignOut(auth);
+  };
+
   return (
     <AuthContext.Provider value={{ 
-      user: { uid: 'guest-user-123' }, 
-      profile: GUEST_PROFILE, 
-      loading: false, 
-      signOut: async () => { console.log('Guest logout requested'); }, 
-      signInWithGoogle: async () => {}, 
-      signInWithEmail: async () => {}, 
-      signUpWithEmail: async () => {} 
+      user, 
+      profile, 
+      loading, 
+      signOut, 
+      signInWithGoogle, 
+      signInWithEmail, 
+      signUpWithEmail 
     }}>
       {children}
     </AuthContext.Provider>

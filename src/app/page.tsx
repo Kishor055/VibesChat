@@ -1,14 +1,15 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
+import { useRouter } from 'next/navigation';
 import { ChatSidebar } from '@/components/chat/sidebar';
 import { MessageArea } from '@/components/chat/message-area';
 import { Loader2 } from 'lucide-react';
 
 export default function PulseTalkApp() {
-  const { profile, loading } = useAuth();
+  const { user, profile, loading } = useAuth();
+  const router = useRouter();
   const [activeRoomId, setActiveRoomId] = useState('general');
   const [mounted, setMounted] = useState(false);
 
@@ -16,7 +17,13 @@ export default function PulseTalkApp() {
     setMounted(true);
   }, []);
 
-  if (!mounted || loading) {
+  useEffect(() => {
+    if (mounted && !loading && !user) {
+      router.push('/auth');
+    }
+  }, [mounted, loading, user, router]);
+
+  if (!mounted || loading || !user) {
     return (
       <div className="h-screen w-full flex flex-col items-center justify-center bg-[#0D0B14]">
          <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center mb-6 shadow-2xl shadow-primary/40 animate-pulse">
@@ -29,7 +36,6 @@ export default function PulseTalkApp() {
 
   return (
     <main className="flex h-screen w-full overflow-hidden bg-[#0D0B14]" suppressHydrationWarning>
-      {/* Dynamic Cosmic Background Elements */}
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-primary/10 rounded-full blur-[120px] animate-pulse" />
         <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-accent/5 rounded-full blur-[100px] animate-pulse delay-700" />
@@ -46,7 +52,6 @@ export default function PulseTalkApp() {
             roomId={activeRoomId} 
           />
           
-          {/* Presence / Room Info Right Sidebar (Hidden on mobile) */}
           <div className="hidden xl:flex w-72 h-full flex-col glass-darker border-l border-white/5 p-6">
              <div className="text-center mb-8">
                <div className="w-24 h-24 mx-auto rounded-3xl overflow-hidden glass border-2 border-white/10 p-1 mb-4">

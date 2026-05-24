@@ -1,10 +1,10 @@
-# NovaPulse | Cosmic Real-Time Communication Platform
+# VibeChat | Cosmic Real-Time Communication Platform
 
-NovaPulse is an enterprise-grade, high-performance real-time messaging and social hybrid platform built with a futuristic cosmic aesthetic. It combines the immediacy of real-time chat with a visual "Cosmic Feed" powered by generative AI.
+VibeChat is an enterprise-grade, high-performance real-time messaging and social hybrid platform built with a futuristic cosmic aesthetic. It combines the immediacy of real-time chat with a visual "Cosmic Feed" powered by generative AI.
 
 ## 🚀 Architectural Overview
 
-NovaPulse leverages a cutting-edge serverless architecture optimized for low latency and high scalability.
+VibeChat leverages a cutting-edge serverless architecture optimized for low latency and high scalability.
 
 - **Frontend**: React 19 / Next.js 15 (App Router)
 - **Real-Time Engine**: Firebase Firestore with persistent listeners for messages and social interactions.
@@ -35,7 +35,7 @@ NovaPulse leverages a cutting-edge serverless architecture optimized for low lat
 The platform utilizes **Firestore Persistent Listeners** (`onSnapshot`) for all critical data paths, ensuring functionality during network interruptions.
 
 ### Hydration Resilience
-NovaPulse implements a strict `mounted` state pattern across all client components to resolve SSR challenges in Next.js, ensuring browser-specific attributes do not trigger hydration mismatches.
+VibeChat implements a strict `mounted` state pattern across all client components to resolve SSR challenges in Next.js, ensuring browser-specific attributes do not trigger hydration mismatches.
 
 ### AI Flows (Genkit)
 - `suggestSmartReplies`: Analyzes conversation context for rapid communication.
@@ -43,4 +43,4 @@ NovaPulse implements a strict `mounted` state pattern across all client componen
 
 ---
 
-*NovaPulse: Bridging the gap between cosmic inspiration and real-time connectivity.*
+*VibeChat: Bridging the gap between cosmic inspiration and real-time connectivity.*

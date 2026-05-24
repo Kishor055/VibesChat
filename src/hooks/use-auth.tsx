@@ -27,7 +27,7 @@ const AuthContext = createContext<AuthContextType>({
   updateProfile: () => {},
 });
 
-const STORAGE_KEY = 'novapulse_guest_profile';
+const STORAGE_KEY = 'vibechat_guest_profile';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -38,7 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setMounted(true);
     
     const initializeGuest = async () => {
-      const savedProfileStr = localStorage.getItem(STORAGE_KEY);
+      const savedProfileStr = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null;
       let currentProfile: UserProfile;
 
       if (savedProfileStr) {
@@ -48,12 +48,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         currentProfile = {
           uid,
           name: 'Cosmic Traveler',
-          email: `${uid}@novapulse.io`,
+          email: `${uid}@vibechat.io`,
           avatar: `https://picsum.photos/seed/${uid}/200/200`,
           status: 'online',
           lastSeen: new Date().toISOString(),
         };
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(currentProfile));
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(currentProfile));
+        }
       }
 
       // Sync with Firestore asynchronously
@@ -90,7 +92,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!profile) return;
     const updated = { ...profile, ...data };
     setProfile(updated);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    }
     
     // Sync to Firestore non-blockingly
     const userDocRef = doc(db, 'users', profile.uid);

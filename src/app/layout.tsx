@@ -4,7 +4,7 @@ import { AuthProvider } from '@/hooks/use-auth';
 import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
-  title: 'NovaPulse | Cosmic Real-Time Communication',
+  title: 'VibeChat | Cosmic Real-Time Communication',
   description: 'Enterprise-grade real-time messaging with AI assistance.',
 };
 

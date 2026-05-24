@@ -98,9 +98,9 @@ export function ChatSidebar({ activeView, onViewChange, activeRoomId, onRoomSele
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-white font-bold text-xl">N</span>
+              <span className="text-white font-bold text-xl">V</span>
             </div>
-            <h1 className="font-headline font-bold text-xl tracking-tight">NovaPulse</h1>
+            <h1 className="font-headline font-bold text-xl tracking-tight">VibeChat</h1>
           </div>
           
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

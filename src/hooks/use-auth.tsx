@@ -13,50 +13,57 @@ interface UserProfile {
 }
 
 interface AuthContextType {
-  user: any;
+  user: { uid: string } | null;
   profile: UserProfile | null;
   loading: boolean;
-  signInWithGoogle: () => Promise<void>;
-  signOut: () => Promise<void>;
-  signInWithEmail: (email: string, pass: string) => Promise<void>;
-  signUpWithEmail: (email: string, pass: string) => Promise<void>;
+  updateProfile: (data: Partial<UserProfile>) => void;
 }
-
-const GUEST_PROFILE: UserProfile = {
-  uid: 'guest-cosmic-traveler',
-  name: 'Cosmic Traveler',
-  email: 'guest@pulsetalk.io',
-  avatar: 'https://picsum.photos/seed/guest/200/200',
-  status: 'online',
-  lastSeen: new Date(),
-};
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   profile: null,
   loading: true,
-  signInWithGoogle: async () => {},
-  signOut: async () => {},
-  signInWithEmail: async () => {},
-  signUpWithEmail: async () => {},
+  updateProfile: () => {},
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
+    // Persist guest identity in localStorage
+    const savedProfile = localStorage.getItem('pulsetalk_guest_profile');
+    if (savedProfile) {
+      setProfile(JSON.parse(savedProfile));
+    } else {
+      const newGuest: UserProfile = {
+        uid: `guest-${Math.random().toString(36).substr(2, 9)}`,
+        name: 'Cosmic Traveler',
+        email: 'guest@pulsetalk.io',
+        avatar: `https://picsum.photos/seed/${Math.random()}/200/200`,
+        status: 'online',
+        lastSeen: new Date().toISOString(),
+      };
+      setProfile(newGuest);
+      localStorage.setItem('pulsetalk_guest_profile', JSON.stringify(newGuest));
+    }
+    setLoading(false);
   }, []);
 
-  // System is guest-only per user request
+  const updateProfile = (data: Partial<UserProfile>) => {
+    if (!profile) return;
+    const updated = { ...profile, ...data };
+    setProfile(updated);
+    localStorage.setItem('pulsetalk_guest_profile', JSON.stringify(updated));
+  };
+
   const value = {
-    user: mounted ? { uid: GUEST_PROFILE.uid } : null,
-    profile: mounted ? GUEST_PROFILE : null,
-    loading: !mounted,
-    signOut: async () => { console.log("Guest mode active - sign out disabled"); },
-    signInWithGoogle: async () => {},
-    signInWithEmail: async () => {},
-    signUpWithEmail: async () => {},
+    user: profile ? { uid: profile.uid } : null,
+    profile,
+    loading: !mounted || loading,
+    updateProfile,
   };
 
   return (

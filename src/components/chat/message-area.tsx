@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Send, Smile, Paperclip, MoreVertical, Phone, Video, Loader2 } from 'lucide-react';
+import { Send, Smile, Paperclip, MoreVertical, Search, Phone, Video, Loader2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SmartReplies } from './smart-replies';
 import { 
@@ -25,6 +25,7 @@ import { db } from '@/firebase/config';
 interface Message {
   id: string;
   senderId: string;
+  senderName?: string;
   text: string;
   timestamp: any;
   roomId: string;
@@ -41,6 +42,8 @@ export function MessageArea({ roomId }: MessageAreaProps) {
   const [roomName, setRoomName] = useState('Loading...');
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -52,13 +55,13 @@ export function MessageArea({ roomId }: MessageAreaProps) {
 
     setLoading(true);
     const fetchRoomInfo = async () => {
-      if (roomId === 'general' || roomId === 'random') {
-        setRoomName(roomId.charAt(0).toUpperCase() + roomId.slice(1));
+      if (roomId === 'general' || roomId === 'dev-hub') {
+        setRoomName(roomId.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' '));
       } else {
         try {
-          const userDoc = await getDoc(doc(db, 'users', roomId));
-          if (userDoc.exists()) {
-            setRoomName(userDoc.data().name);
+          const roomDoc = await getDoc(doc(db, 'rooms', roomId));
+          if (roomDoc.exists()) {
+            setRoomName(roomDoc.data().name);
           } else {
             setRoomName('Cosmic Channel');
           }
@@ -96,6 +99,7 @@ export function MessageArea({ roomId }: MessageAreaProps) {
     try {
       addDoc(collection(db, 'messages'), {
         senderId: profile.uid,
+        senderName: profile.name,
         text: messageText,
         timestamp: serverTimestamp(),
         roomId
@@ -106,10 +110,14 @@ export function MessageArea({ roomId }: MessageAreaProps) {
   };
 
   useEffect(() => {
-    if (scrollRef.current) {
+    if (scrollRef.current && !isSearching) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, isSearching]);
+
+  const filteredMessages = messages.filter(m => 
+    m.text.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const lastReceivedMessage = [...messages].reverse().find(m => m.senderId !== profile?.uid);
 
@@ -125,11 +133,31 @@ export function MessageArea({ roomId }: MessageAreaProps) {
             <h2 className="font-semibold text-sm">{roomName}</h2>
             <p className="text-xs text-green-500 font-medium flex items-center gap-1.5">
               <span className="block w-1.5 h-1.5 rounded-full bg-green-500"></span>
-              Active Now
+              Live Channel
             </p>
           </div>
         </div>
+
         <div className="flex items-center gap-1">
+          {isSearching ? (
+            <div className="flex items-center gap-2 bg-white/5 rounded-full px-3 py-1 animate-in slide-in-from-right-2">
+              <Search className="w-4 h-4 text-muted-foreground" />
+              <input 
+                autoFocus
+                className="bg-transparent border-none outline-none text-xs text-white w-32"
+                placeholder="Search..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              <button onClick={() => { setIsSearching(false); setSearchTerm(''); }}>
+                <X className="w-4 h-4 text-muted-foreground hover:text-white" />
+              </button>
+            </div>
+          ) : (
+            <Button variant="ghost" size="icon" className="text-muted-foreground hover:bg-white/5" onClick={() => setIsSearching(true)}>
+              <Search className="w-5 h-5" />
+            </Button>
+          )}
           <Button variant="ghost" size="icon" className="text-muted-foreground hover:bg-white/5">
             <Phone className="w-5 h-5" />
           </Button>
@@ -142,18 +170,23 @@ export function MessageArea({ roomId }: MessageAreaProps) {
         </div>
       </div>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-6">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-6 scroll-smooth">
         {loading ? (
           <div className="h-full flex flex-col items-center justify-center space-y-4">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
             <p className="text-sm text-muted-foreground">Syncing cosmic data...</p>
           </div>
+        ) : filteredMessages.length === 0 && searchTerm ? (
+          <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
+            <Search className="w-12 h-12 mb-4 opacity-20" />
+            <p>No results found for "{searchTerm}"</p>
+          </div>
         ) : (
-          messages.map((msg) => {
+          filteredMessages.map((msg) => {
             const isMe = msg.senderId === profile?.uid;
             
             return (
-              <div key={msg.id} className={cn("flex gap-3 max-w-[80%]", isMe ? "ml-auto flex-row-reverse" : "mr-auto")}>
+              <div key={msg.id} className={cn("flex gap-3 max-w-[80%] animate-in fade-in slide-in-from-bottom-2 duration-300", isMe ? "ml-auto flex-row-reverse" : "mr-auto")}>
                 {!isMe && (
                   <Avatar className="w-8 h-8 mt-auto">
                     <AvatarImage src={`https://picsum.photos/seed/${msg.senderId}/200/200`} />
@@ -161,6 +194,7 @@ export function MessageArea({ roomId }: MessageAreaProps) {
                   </Avatar>
                 )}
                 <div className="flex flex-col gap-1">
+                  {!isMe && <span className="text-[10px] text-muted-foreground ml-1 font-bold">{msg.senderName || 'Anonymous'}</span>}
                   <div className={cn(
                     "px-4 py-2.5 rounded-2xl text-sm shadow-sm transition-all",
                     isMe 
@@ -182,7 +216,7 @@ export function MessageArea({ roomId }: MessageAreaProps) {
       </div>
 
       <div className="p-6 pt-2 space-y-4">
-        {lastReceivedMessage && (
+        {lastReceivedMessage && !isSearching && (
           <SmartReplies 
             lastMessage={lastReceivedMessage.text} 
             onReplySelect={handleSendMessage} 
@@ -197,7 +231,7 @@ export function MessageArea({ roomId }: MessageAreaProps) {
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSendMessage(inputValue)}
-            placeholder="Write a message..." 
+            placeholder={`Message #${roomName.toLowerCase().replace(/\s/g, '-')}`} 
             className="flex-1 bg-transparent border-none shadow-none focus-visible:ring-0 text-sm h-10"
           />
           <Button variant="ghost" size="icon" className="text-muted-foreground hover:bg-white/5">

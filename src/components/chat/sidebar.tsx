@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Hash, Plus, Settings, Search, LayoutGrid, MessageSquare, Sparkles, Check, Users, UserPlus } from 'lucide-react';
+import { Hash, Plus, Settings, Search, LayoutGrid, MessageSquare, Sparkles, Check, Users, UserPlus, UserMinus, Radio } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { 
@@ -15,7 +15,10 @@ import {
   addDoc, 
   serverTimestamp,
   where,
-  getDocs
+  getDocs,
+  doc,
+  setDoc,
+  deleteDoc
 } from 'firebase/firestore';
 import { db } from '@/firebase/config';
 import {
@@ -41,12 +44,21 @@ interface Room {
   id: string;
   name: string;
   type: 'group' | 'private';
+  participants?: string[];
+}
+
+interface Friend {
+  uid: string;
+  name: string;
+  avatar: string;
+  status: string;
 }
 
 export function ChatSidebar({ activeView, onViewChange, activeRoomId, onRoomSelect }: ChatSidebarProps) {
   const { profile, updateProfile } = useAuth();
   const { toast } = useToast();
   const [rooms, setRooms] = useState<Room[]>([]);
+  const [friends, setFriends] = useState<Friend[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [newRoomName, setNewRoomName] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -55,19 +67,39 @@ export function ChatSidebar({ activeView, onViewChange, activeRoomId, onRoomSele
   const [tempName, setTempName] = useState(profile?.name || '');
 
   useEffect(() => {
+    if (!profile) return;
+
+    // Listen to all public rooms and private rooms where current user is a participant
     const q = query(collection(db, 'rooms'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const unsubscribeRooms = onSnapshot(q, (snapshot) => {
       const roomsData: Room[] = [
         { id: 'general', name: 'General Hub', type: 'group' },
         { id: 'dev-sector', name: 'Dev Sector', type: 'group' }
       ];
       snapshot.forEach((doc) => {
-        roomsData.push({ id: doc.id, ...doc.data() } as Room);
+        const data = doc.data();
+        if (data.type === 'group' || (data.type === 'private' && data.participants?.includes(profile.uid))) {
+          roomsData.push({ id: doc.id, ...data } as Room);
+        }
       });
       setRooms(roomsData);
     });
-    return () => unsubscribe();
-  }, []);
+
+    // Listen to all users to display as "potential friends"
+    const usersQ = query(collection(db, 'users'), where('uid', '!=', profile.uid));
+    const unsubscribeUsers = onSnapshot(usersQ, (snapshot) => {
+      const usersData: Friend[] = [];
+      snapshot.forEach(doc => {
+        usersData.push(doc.data() as Friend);
+      });
+      setFriends(usersData);
+    });
+
+    return () => {
+      unsubscribeRooms();
+      unsubscribeUsers();
+    };
+  }, [profile?.uid]);
 
   const handleForgeAvatar = async () => {
     if (!profile) return;
@@ -83,6 +115,34 @@ export function ChatSidebar({ activeView, onViewChange, activeRoomId, onRoomSele
     } finally {
       setIsForging(false);
     }
+  };
+
+  const startPrivateChat = async (friend: Friend) => {
+    if (!profile) return;
+    
+    // Check if room already exists
+    const existingRoom = rooms.find(r => 
+      r.type === 'private' && r.participants?.includes(friend.uid) && r.participants?.includes(profile.uid)
+    );
+
+    if (existingRoom) {
+      onRoomSelect(existingRoom.id);
+      onViewChange('chat');
+      return;
+    }
+
+    // Create new private room
+    const roomId = [profile.uid, friend.uid].sort().join('-');
+    await setDoc(doc(db, 'rooms', roomId), {
+      name: `${profile.name} & ${friend.name}`,
+      type: 'private',
+      participants: [profile.uid, friend.uid],
+      createdAt: serverTimestamp()
+    });
+    
+    onRoomSelect(roomId);
+    onViewChange('chat');
+    toast({ title: "Signal Established", description: `Private sector opened with ${friend.name}.` });
   };
 
   const saveProfile = () => {
@@ -126,7 +186,12 @@ export function ChatSidebar({ activeView, onViewChange, activeRoomId, onRoomSele
                 <Button variant="ghost" onClick={() => setIsDialogOpen(false)}>Abort</Button>
                 <Button onClick={() => {
                    if(newRoomName.trim()){
-                     addDoc(collection(db, 'rooms'), { name: newRoomName.trim(), type: 'group', createdAt: serverTimestamp(), createdBy: profile?.uid });
+                     addDoc(collection(db, 'rooms'), { 
+                       name: newRoomName.trim(), 
+                       type: 'group', 
+                       createdAt: serverTimestamp(), 
+                       createdBy: profile?.uid 
+                     });
                      setNewRoomName(''); setIsDialogOpen(false);
                    }
                 }} className="bg-primary hover:bg-primary/90">Initialize</Button>
@@ -178,7 +243,7 @@ export function ChatSidebar({ activeView, onViewChange, activeRoomId, onRoomSele
         <div className="p-4 space-y-8">
           {activeView === 'chat' && (
             <div>
-              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-2 mb-3 block">Active Sectors</span>
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-2 mb-3 block">Sector Channels</span>
               <div className="space-y-1">
                 {rooms.filter(r => r.name.toLowerCase().includes(searchQuery.toLowerCase())).map(room => (
                   <button
@@ -189,7 +254,11 @@ export function ChatSidebar({ activeView, onViewChange, activeRoomId, onRoomSele
                       activeRoomId === room.id ? "bg-primary text-white shadow-xl shadow-primary/20" : "text-muted-foreground hover:bg-white/5"
                     )}
                   >
-                    <Hash className={cn("w-4 h-4", activeRoomId === room.id ? "text-white" : "text-primary/60 group-hover:text-primary")} />
+                    {room.type === 'group' ? (
+                      <Hash className={cn("w-4 h-4", activeRoomId === room.id ? "text-white" : "text-primary/60 group-hover:text-primary")} />
+                    ) : (
+                      <Radio className={cn("w-4 h-4", activeRoomId === room.id ? "text-white" : "text-accent/60 group-hover:text-accent")} />
+                    )}
                     <span className="text-sm font-semibold truncate">{room.name}</span>
                   </button>
                 ))}
@@ -199,11 +268,37 @@ export function ChatSidebar({ activeView, onViewChange, activeRoomId, onRoomSele
           
           {activeView === 'friends' && (
             <div className="space-y-6">
-               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-2 block">Network Contacts</span>
-               <div className="p-3 glass-card rounded-xl border-white/5 text-center">
-                  <UserPlus className="w-8 h-8 mx-auto mb-2 text-primary/40" />
-                  <p className="text-xs text-muted-foreground mb-3">Invite others to your sector to bridge the cosmic gap.</p>
-                  <Button variant="outline" size="sm" className="w-full text-[10px] uppercase font-bold border-white/10">Broadcast Invitation</Button>
+               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-2 block">Network Explorers</span>
+               <div className="space-y-2">
+                 {friends.filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase())).map(friend => (
+                   <div key={friend.uid} className="flex items-center justify-between p-2 glass-card rounded-xl border-white/5 group hover:border-primary/30 transition-all">
+                     <div className="flex items-center gap-3">
+                       <Avatar className="w-8 h-8">
+                         <AvatarImage src={friend.avatar} />
+                         <AvatarFallback>{friend.name[0]}</AvatarFallback>
+                       </Avatar>
+                       <div className="flex flex-col">
+                         <span className="text-xs font-bold">{friend.name}</span>
+                         <span className="text-[9px] text-muted-foreground uppercase tracking-tighter">{friend.status || 'Offline'}</span>
+                       </div>
+                     </div>
+                     <Button 
+                       variant="ghost" 
+                       size="icon" 
+                       className="h-8 w-8 text-primary opacity-0 group-hover:opacity-100 transition-opacity"
+                       onClick={() => startPrivateChat(friend)}
+                     >
+                       <MessageSquare className="w-4 h-4" />
+                     </Button>
+                   </div>
+                 ))}
+                 
+                 {friends.length === 0 && (
+                   <div className="p-3 glass-card rounded-xl border-white/5 text-center">
+                     <UserPlus className="w-8 h-8 mx-auto mb-2 text-primary/40" />
+                     <p className="text-xs text-muted-foreground mb-3">The cosmic network is lonely. Invite others to start building your graph.</p>
+                   </div>
+                 )}
                </div>
             </div>
           )}

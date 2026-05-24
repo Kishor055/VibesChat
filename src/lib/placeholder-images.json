@@ -1,3 +1,28 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "avatar-1",
+      "description": "User profile avatar 1",
+      "imageUrl": "https://picsum.photos/seed/avatar1/200/200",
+      "imageHint": "user profile"
+    },
+    {
+      "id": "avatar-2",
+      "description": "User profile avatar 2",
+      "imageUrl": "https://picsum.photos/seed/avatar2/200/200",
+      "imageHint": "user profile"
+    },
+    {
+      "id": "avatar-3",
+      "description": "User profile avatar 3",
+      "imageUrl": "https://picsum.photos/seed/avatar3/200/200",
+      "imageHint": "user profile"
+    },
+    {
+      "id": "chat-bg",
+      "description": "Abstract cosmic background",
+      "imageUrl": "https://picsum.photos/seed/cosmic/1200/800",
+      "imageHint": "abstract cosmic"
+    }
+  ]
 }

@@ -1,12 +1,11 @@
-
-"use client";
+'use client';
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Hash, Plus, Settings, Search, LogOut, User as UserIcon, Check } from 'lucide-react';
+import { Hash, Plus, Settings, Search, LayoutGrid, MessageSquare, Sparkles, Check } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { 
@@ -28,6 +27,8 @@ import {
 } from "@/components/ui/dialog";
 
 interface ChatSidebarProps {
+  activeView: 'chat' | 'feed';
+  onViewChange: (view: 'chat' | 'feed') => void;
   activeRoomId: string;
   onRoomSelect: (roomId: string) => void;
 }
@@ -36,10 +37,9 @@ interface Room {
   id: string;
   name: string;
   type: 'group' | 'private';
-  createdAt?: any;
 }
 
-export function ChatSidebar({ activeRoomId, onRoomSelect }: ChatSidebarProps) {
+export function ChatSidebar({ activeView, onViewChange, activeRoomId, onRoomSelect }: ChatSidebarProps) {
   const { profile, updateProfile } = useAuth();
   const [rooms, setRooms] = useState<Room[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -58,7 +58,6 @@ export function ChatSidebar({ activeRoomId, onRoomSelect }: ChatSidebarProps) {
       snapshot.forEach((doc) => {
         roomsData.push({ id: doc.id, ...doc.data() } as Room);
       });
-      // Filter out duplicates if General was added manually to DB
       const uniqueRooms = roomsData.filter((room, index, self) =>
         index === self.findIndex((t) => t.id === room.id)
       );
@@ -114,12 +113,12 @@ export function ChatSidebar({ activeRoomId, onRoomSelect }: ChatSidebarProps) {
               <DialogHeader>
                 <DialogTitle>Create New Channel</DialogTitle>
                 <DialogDescription className="text-muted-foreground">
-                  Channels are where your team communicates. They’re best when organized around a topic.
+                  Channels are where your team communicates. Best for project hubs.
                 </DialogDescription>
               </DialogHeader>
               <div className="py-4">
                 <Input
-                  placeholder="e.g. project-x"
+                  placeholder="e.g. creative-hub"
                   value={newRoomName}
                   onChange={(e) => setNewRoomName(e.target.value)}
                   className="bg-white/5 border-white/10"
@@ -133,10 +132,30 @@ export function ChatSidebar({ activeRoomId, onRoomSelect }: ChatSidebarProps) {
           </Dialog>
         </div>
 
+        {/* Navigation Mode Toggles */}
+        <div className="grid grid-cols-2 gap-2 mb-6">
+          <Button 
+            variant="ghost" 
+            onClick={() => onViewChange('chat')}
+            className={cn("h-9 rounded-xl gap-2", activeView === 'chat' ? "bg-primary text-white" : "text-muted-foreground hover:bg-white/5")}
+          >
+            <MessageSquare className="w-4 h-4" />
+            <span className="text-xs">Chat</span>
+          </Button>
+          <Button 
+            variant="ghost" 
+            onClick={() => onViewChange('feed')}
+            className={cn("h-9 rounded-xl gap-2", activeView === 'feed' ? "bg-primary text-white" : "text-muted-foreground hover:bg-white/5")}
+          >
+            <LayoutGrid className="w-4 h-4" />
+            <span className="text-xs">Feed</span>
+          </Button>
+        </div>
+
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input 
-            placeholder="Find a channel..." 
+            placeholder="Search network..." 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9 bg-white/5 border-white/10 focus:ring-primary/50"
@@ -146,26 +165,45 @@ export function ChatSidebar({ activeRoomId, onRoomSelect }: ChatSidebarProps) {
 
       <ScrollArea className="flex-1">
         <div className="p-4 space-y-8">
-          <div>
-            <div className="flex items-center justify-between px-2 mb-3">
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Channels</span>
+          {activeView === 'chat' ? (
+            <div>
+              <div className="flex items-center justify-between px-2 mb-3">
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Channels</span>
+              </div>
+              <div className="space-y-1">
+                {filteredRooms.map(room => (
+                  <button
+                    key={room.id}
+                    onClick={() => onRoomSelect(room.id)}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group",
+                      activeRoomId === room.id ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
+                    )}
+                  >
+                    <Hash className={cn("w-4 h-4", activeRoomId === room.id ? "text-white" : "text-muted-foreground group-hover:text-primary")} />
+                    <span className="text-sm font-medium">{room.name}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="space-y-1">
-              {filteredRooms.map(room => (
-                <button
-                  key={room.id}
-                  onClick={() => onRoomSelect(room.id)}
-                  className={cn(
-                    "w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group",
-                    activeRoomId === room.id ? "bg-primary text-white" : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
-                  )}
-                >
-                  <Hash className={cn("w-4 h-4", activeRoomId === room.id ? "text-white" : "text-muted-foreground group-hover:text-primary")} />
-                  <span className="text-sm font-medium">{room.name}</span>
-                </button>
-              ))}
+          ) : (
+            <div>
+              <div className="flex items-center justify-between px-2 mb-3">
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Global Stream</span>
+              </div>
+              <div className="px-2 space-y-4">
+                <div className="p-3 glass-card rounded-xl border-primary/20">
+                  <div className="flex items-center gap-2 text-primary mb-2">
+                    <Sparkles className="w-3 h-3" />
+                    <span className="text-[10px] font-bold uppercase">Trending Visuals</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Browse visual moments shared across the cosmic network. React and interact live.
+                  </p>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </ScrollArea>
 
@@ -197,7 +235,7 @@ export function ChatSidebar({ activeRoomId, onRoomSelect }: ChatSidebarProps) {
                       <Settings className="w-3 h-3 text-muted-foreground hover:text-white" />
                     </button>
                   </p>
-                  <p className="text-[10px] text-muted-foreground truncate uppercase tracking-tighter">Guest Identity</p>
+                  <p className="text-[10px] text-muted-foreground truncate uppercase tracking-tighter">Verified Traveler</p>
                 </>
               )}
             </div>

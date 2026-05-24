@@ -1,15 +1,17 @@
-
-"use client";
+'use client';
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { ChatSidebar } from '@/components/chat/sidebar';
 import { MessageArea } from '@/components/chat/message-area';
-import { Loader2 } from 'lucide-react';
+import { PostFeed } from '@/components/chat/post-feed';
+import { Loader2, Globe, MessageCircle, Info } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 export default function PulseTalkApp() {
   const { profile, loading } = useAuth();
   const [activeRoomId, setActiveRoomId] = useState('general');
+  const [activeView, setActiveView] = useState<'chat' | 'feed'>('chat');
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -36,51 +38,75 @@ export default function PulseTalkApp() {
 
       <div className="relative flex w-full h-full glass-darker overflow-hidden">
         <ChatSidebar 
+          activeView={activeView}
+          onViewChange={setActiveView}
           activeRoomId={activeRoomId} 
-          onRoomSelect={setActiveRoomId} 
+          onRoomSelect={(id) => {
+            setActiveRoomId(id);
+            setActiveView('chat');
+          }} 
         />
         
-        <div className="flex-1 relative flex">
-          <MessageArea 
-            roomId={activeRoomId} 
-          />
+        <div className="flex-1 relative flex overflow-hidden">
+          {activeView === 'chat' ? (
+            <MessageArea roomId={activeRoomId} />
+          ) : (
+            <PostFeed />
+          )}
           
-          <div className="hidden xl:flex w-72 h-full flex-col glass-darker border-l border-white/5 p-6">
+          {/* Right Sidebar - Dynamic Context */}
+          <div className="hidden xl:flex w-80 h-full flex-col glass-darker border-l border-white/5 p-6 overflow-y-auto">
              <div className="text-center mb-8">
-               <div className="w-24 h-24 mx-auto rounded-3xl overflow-hidden glass border-2 border-white/10 p-1 mb-4">
+               <div className="w-24 h-24 mx-auto rounded-3xl overflow-hidden glass border-2 border-white/10 p-1 mb-4 shadow-xl">
                  <img 
-                   src={`https://picsum.photos/seed/${activeRoomId}/400/400`} 
-                   alt="Room"
+                   src={`https://picsum.photos/seed/${activeView === 'chat' ? activeRoomId : 'global-feed'}/400/400`} 
+                   alt="Avatar"
                    className="w-full h-full object-cover rounded-[1.25rem]"
-                   data-ai-hint="room avatar"
+                   data-ai-hint="context avatar"
                  />
                </div>
-               <h3 className="font-bold text-lg">Room Details</h3>
-               <p className="text-xs text-muted-foreground">PulseTalk Cosmic Network</p>
+               <h3 className="font-bold text-lg">{activeView === 'chat' ? 'Channel Hub' : 'Cosmic Feed'}</h3>
+               <p className="text-xs text-muted-foreground uppercase tracking-widest">Global Status: Active</p>
              </div>
 
-             <div className="space-y-6">
-                <div>
-                  <h4 className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest mb-3">Workspace Information</h4>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    You are connected to the encrypted cosmic channel. Access is currently public for guest users.
+             <div className="space-y-8">
+                <div className="p-4 rounded-2xl glass-card border-white/5">
+                  <div className="flex items-center gap-2 mb-3 text-primary">
+                    <Info className="w-4 h-4" />
+                    <h4 className="text-[10px] font-bold uppercase tracking-widest">Network Intel</h4>
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    {activeView === 'chat' 
+                      ? "You are connected to a high-latency encrypted cosmic channel. Messages are stored across decentralized nodes."
+                      : "The global feed aggregates visual moments from all sectors. Interact to boost visibility."
+                    }
                   </p>
                 </div>
 
                 <div>
-                  <h4 className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest mb-3">Network Status</h4>
-                  <div className="flex items-center gap-2 text-xs text-green-500 font-medium">
-                    <span className="w-2 h-2 rounded-full bg-green-500 animate-ping" />
-                    Secure Link Active (Guest Mode)
+                  <h4 className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest mb-4">Transmission Stats</h4>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-muted-foreground">Uptime</span>
+                      <span className="text-green-500 font-mono">99.9%</span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-muted-foreground">Signal</span>
+                      <span className="text-primary font-mono">Strong</span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-muted-foreground">Protocol</span>
+                      <span className="text-accent font-mono">v4.2-Pulse</span>
+                    </div>
                   </div>
                 </div>
 
                 <div>
-                  <h4 className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest mb-3">Recent Media</h4>
+                  <h4 className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest mb-4">Sector Artifacts</h4>
                   <div className="grid grid-cols-3 gap-2">
-                    {[1, 2, 3, 4, 5, 6].map(i => (
-                      <div key={i} className="aspect-square rounded-lg glass border-white/5 overflow-hidden hover:scale-105 transition-transform cursor-pointer">
-                        <img src={`https://picsum.photos/seed/media${i}/200/200`} className="w-full h-full object-cover opacity-60 hover:opacity-100" alt="media" data-ai-hint="chat media" />
+                    {[11, 22, 33, 44, 55, 66].map(i => (
+                      <div key={i} className="aspect-square rounded-lg glass border-white/5 overflow-hidden hover:scale-105 transition-all cursor-pointer group">
+                        <img src={`https://picsum.photos/seed/art${i}/200/200`} className="w-full h-full object-cover opacity-40 group-hover:opacity-100" alt="artifact" data-ai-hint="visual media" />
                       </div>
                     ))}
                   </div>

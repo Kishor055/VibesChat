@@ -1,12 +1,11 @@
-
-"use client";
+'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Send, Smile, Paperclip, MoreVertical, Search, Phone, Video, Loader2, X } from 'lucide-react';
+import { Send, Smile, Paperclip, MoreVertical, Search, Phone, Video, Loader2, X, Heart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SmartReplies } from './smart-replies';
 import { 
@@ -18,9 +17,12 @@ import {
   onSnapshot, 
   serverTimestamp,
   doc,
-  getDoc
+  getDoc,
+  updateDoc,
+  arrayUnion
 } from 'firebase/firestore';
 import { db } from '@/firebase/config';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface Message {
   id: string;
@@ -29,11 +31,14 @@ interface Message {
   text: string;
   timestamp: any;
   roomId: string;
+  reactions?: { [emoji: string]: string[] };
 }
 
 interface MessageAreaProps {
   roomId: string;
 }
+
+const EMOJI_OPTIONS = ['🔥', '✨', '🛸', '🛰️', '💙'];
 
 export function MessageArea({ roomId }: MessageAreaProps) {
   const { profile } = useAuth();
@@ -102,11 +107,20 @@ export function MessageArea({ roomId }: MessageAreaProps) {
         senderName: profile.name,
         text: messageText,
         timestamp: serverTimestamp(),
-        roomId
+        roomId,
+        reactions: {}
       });
     } catch (err) {
       console.error("Error sending message:", err);
     }
+  };
+
+  const handleAddReaction = async (messageId: string, emoji: string) => {
+    if (!profile) return;
+    const msgRef = doc(db, 'messages', messageId);
+    await updateDoc(msgRef, {
+      [`reactions.${emoji}`]: arrayUnion(profile.uid)
+    });
   };
 
   useEffect(() => {
@@ -159,12 +173,6 @@ export function MessageArea({ roomId }: MessageAreaProps) {
             </Button>
           )}
           <Button variant="ghost" size="icon" className="text-muted-foreground hover:bg-white/5">
-            <Phone className="w-5 h-5" />
-          </Button>
-          <Button variant="ghost" size="icon" className="text-muted-foreground hover:bg-white/5">
-            <Video className="w-5 h-5" />
-          </Button>
-          <Button variant="ghost" size="icon" className="text-muted-foreground hover:bg-white/5">
             <MoreVertical className="w-5 h-5" />
           </Button>
         </div>
@@ -176,17 +184,12 @@ export function MessageArea({ roomId }: MessageAreaProps) {
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
             <p className="text-sm text-muted-foreground">Syncing cosmic data...</p>
           </div>
-        ) : filteredMessages.length === 0 && searchTerm ? (
-          <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
-            <Search className="w-12 h-12 mb-4 opacity-20" />
-            <p>No results found for "{searchTerm}"</p>
-          </div>
         ) : (
           filteredMessages.map((msg) => {
             const isMe = msg.senderId === profile?.uid;
             
             return (
-              <div key={msg.id} className={cn("flex gap-3 max-w-[80%] animate-in fade-in slide-in-from-bottom-2 duration-300", isMe ? "ml-auto flex-row-reverse" : "mr-auto")}>
+              <div key={msg.id} className={cn("group flex gap-3 max-w-[80%] animate-in fade-in slide-in-from-bottom-2 duration-300", isMe ? "ml-auto flex-row-reverse" : "mr-auto")}>
                 {!isMe && (
                   <Avatar className="w-8 h-8 mt-auto">
                     <AvatarImage src={`https://picsum.photos/seed/${msg.senderId}/200/200`} />
@@ -195,14 +198,51 @@ export function MessageArea({ roomId }: MessageAreaProps) {
                 )}
                 <div className="flex flex-col gap-1">
                   {!isMe && <span className="text-[10px] text-muted-foreground ml-1 font-bold">{msg.senderName || 'Anonymous'}</span>}
-                  <div className={cn(
-                    "px-4 py-2.5 rounded-2xl text-sm shadow-sm transition-all",
-                    isMe 
-                      ? "bg-primary text-white rounded-br-none" 
-                      : "glass-card text-foreground rounded-bl-none"
-                  )}>
-                    {msg.text}
+                  
+                  <div className="relative">
+                    <div className={cn(
+                      "px-4 py-2.5 rounded-2xl text-sm shadow-sm transition-all",
+                      isMe 
+                        ? "bg-primary text-white rounded-br-none" 
+                        : "glass-card text-foreground rounded-bl-none"
+                    )}>
+                      {msg.text}
+                    </div>
+
+                    {/* Reaction Bar */}
+                    <div className={cn(
+                      "absolute -bottom-2 flex items-center gap-1 transition-opacity",
+                      isMe ? "left-0" : "right-0"
+                    )}>
+                      {msg.reactions && Object.entries(msg.reactions).map(([emoji, users]) => (
+                        users.length > 0 && (
+                          <div key={emoji} className="bg-white/10 backdrop-blur-lg border border-white/10 rounded-full px-1.5 py-0.5 text-[10px] flex items-center gap-1">
+                            <span>{emoji}</span>
+                            <span className="font-bold opacity-70">{users.length}</span>
+                          </div>
+                        )
+                      ))}
+                    </div>
+
+                    {/* Emoji Picker Popover (Hover) */}
+                    <div className={cn(
+                      "absolute top-0 opacity-0 group-hover:opacity-100 transition-opacity z-20",
+                      isMe ? "-left-12" : "-right-12"
+                    )}>
+                      <div className="glass-darker border-white/10 p-1 rounded-full flex gap-1 shadow-xl">
+                        {EMOJI_OPTIONS.map(emoji => (
+                          <button 
+                            key={emoji} 
+                            onClick={() => handleAddReaction(msg.id, emoji)}
+                            className="hover:scale-125 transition-transform p-0.5"
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
+
                   <span className={cn("text-[10px] text-muted-foreground mt-1", isMe ? "text-right" : "text-left")}>
                     {mounted && msg.timestamp?.toDate 
                       ? new Date(msg.timestamp.toDate()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 

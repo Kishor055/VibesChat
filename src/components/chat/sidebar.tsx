@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Hash, Plus, Settings, Search, LayoutGrid, MessageSquare, Sparkles, Check, Users, UserPlus, UserMinus, Radio } from 'lucide-react';
+import { Hash, Plus, Settings, Search, LayoutGrid, MessageSquare, Sparkles, Check, Users, UserPlus, UserMinus, Radio, Share2, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { 
@@ -65,6 +65,7 @@ export function ChatSidebar({ activeView, onViewChange, activeRoomId, onRoomSele
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isForging, setIsForging] = useState(false);
   const [tempName, setTempName] = useState(profile?.name || '');
+  const [isBroadcasting, setIsBroadcasting] = useState(false);
 
   useEffect(() => {
     if (!profile) return;
@@ -115,6 +116,21 @@ export function ChatSidebar({ activeView, onViewChange, activeRoomId, onRoomSele
     } finally {
       setIsForging(false);
     }
+  };
+
+  const handleBroadcastInvite = () => {
+    setIsBroadcasting(true);
+    const inviteLink = `${window.location.origin}/join/${profile?.uid}`;
+    
+    // Simulate network broadcast delay
+    setTimeout(() => {
+      navigator.clipboard.writeText(inviteLink);
+      toast({
+        title: "Broadcast Active",
+        description: "Sector-wide invitation pulse sent. Link copied to clipboard.",
+      });
+      setIsBroadcasting(false);
+    }, 1500);
   };
 
   const startPrivateChat = async (friend: Friend) => {
@@ -268,7 +284,19 @@ export function ChatSidebar({ activeView, onViewChange, activeRoomId, onRoomSele
           
           {activeView === 'friends' && (
             <div className="space-y-6">
-               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-2 block">Network Explorers</span>
+               <div className="flex items-center justify-between ml-2">
+                 <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block">Network Explorers</span>
+                 <Button 
+                   variant="ghost" 
+                   size="sm" 
+                   className="h-6 px-2 text-[9px] uppercase font-bold text-primary hover:bg-primary/10"
+                   onClick={handleBroadcastInvite}
+                   disabled={isBroadcasting}
+                 >
+                   {isBroadcasting ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Share2 className="w-3 h-3 mr-1" />}
+                   Broadcast Invite
+                 </Button>
+               </div>
                <div className="space-y-2">
                  {friends.filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase())).map(friend => (
                    <div key={friend.uid} className="flex items-center justify-between p-2 glass-card rounded-xl border-white/5 group hover:border-primary/30 transition-all">
@@ -279,7 +307,10 @@ export function ChatSidebar({ activeView, onViewChange, activeRoomId, onRoomSele
                        </Avatar>
                        <div className="flex flex-col">
                          <span className="text-xs font-bold">{friend.name}</span>
-                         <span className="text-[9px] text-muted-foreground uppercase tracking-tighter">{friend.status || 'Offline'}</span>
+                         <span className={cn(
+                           "text-[9px] uppercase tracking-tighter font-bold",
+                           friend.status === 'online' ? "text-green-500" : "text-muted-foreground"
+                         )}>{friend.status || 'Offline'}</span>
                        </div>
                      </div>
                      <Button 
@@ -294,9 +325,19 @@ export function ChatSidebar({ activeView, onViewChange, activeRoomId, onRoomSele
                  ))}
                  
                  {friends.length === 0 && (
-                   <div className="p-3 glass-card rounded-xl border-white/5 text-center">
-                     <UserPlus className="w-8 h-8 mx-auto mb-2 text-primary/40" />
-                     <p className="text-xs text-muted-foreground mb-3">The cosmic network is lonely. Invite others to start building your graph.</p>
+                   <div className="p-6 glass-card rounded-2xl border-white/5 text-center space-y-4">
+                     <UserPlus className="w-10 h-10 mx-auto text-primary/40 animate-pulse" />
+                     <div>
+                       <p className="text-xs font-bold text-foreground">Network Silence</p>
+                       <p className="text-[10px] text-muted-foreground mt-1">The cosmic gap is wide. Invite others to establish visual and textual bridges.</p>
+                     </div>
+                     <Button 
+                       onClick={handleBroadcastInvite}
+                       disabled={isBroadcasting}
+                       className="w-full h-8 text-[10px] uppercase font-bold tracking-widest bg-primary/20 hover:bg-primary/40 text-primary border border-primary/20"
+                     >
+                       Broadcast Invitation
+                     </Button>
                    </div>
                  )}
                </div>

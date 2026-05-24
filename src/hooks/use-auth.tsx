@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, ReactNode, useState, useEffect } from 'react';
-import { doc, setDoc, getDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, serverTimestamp, updateDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/firebase/config';
 
 interface UserProfile {
@@ -58,34 +58,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // Sync with Firestore asynchronously
-      const syncWithFirestore = async () => {
-        try {
-          const userDocRef = doc(db, 'users', currentProfile.uid);
-          const userSnap = await getDoc(userDocRef).catch(() => null);
-          
-          if (!userSnap || !userSnap.exists()) {
-            setDoc(userDocRef, {
-              ...currentProfile,
-              lastSeen: serverTimestamp()
-            });
-          } else {
-            updateDoc(userDocRef, {
-              status: 'online',
-              lastSeen: serverTimestamp()
-            });
-          }
-        } catch (e) {
-          // Silent catch
-        }
-      };
-
+      // Initial local state setup
       setProfile(currentProfile);
       setLoading(false);
-      syncWithFirestore();
+
+      // Persistent Firestore sync and listener
+      const userDocRef = doc(db, 'users', currentProfile.uid);
+      
+      // Update local profile with server data if it exists, otherwise create it
+      const unsubscribe = onSnapshot(userDocRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const serverData = snapshot.data() as UserProfile;
+          setProfile(prev => ({ ...prev, ...serverData } as UserProfile));
+        } else {
+          setDoc(userDocRef, {
+            ...currentProfile,
+            lastSeen: serverTimestamp(),
+            status: 'online'
+          });
+        }
+      });
+
+      // Heartbeat: Ensure status is online on mount/reconnect
+      updateDoc(userDocRef, {
+        status: 'online',
+        lastSeen: serverTimestamp()
+      }).catch(() => {
+        // Background sync by Firestore
+      });
+
+      return unsubscribe;
     };
 
-    initializeGuest();
+    let unsubPromise = initializeGuest();
+
+    return () => {
+      unsubPromise.then(unsub => unsub?.());
+    };
   }, []);
 
   const updateProfile = (data: Partial<UserProfile>) => {

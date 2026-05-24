@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { auth } from '@/firebase/config';
 import { 
   signInWithEmailAndPassword, 
@@ -23,8 +23,13 @@ export default function AuthPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleEmailAuth = async (type: 'login' | 'register') => {
     setLoading(true);
@@ -62,6 +67,15 @@ export default function AuthPage() {
       setLoading(false);
     }
   };
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center p-4 relative overflow-hidden bg-[#0D0B14]">
+        <div className="absolute top-1/4 -left-24 w-96 h-96 bg-primary/20 rounded-full blur-[120px]" />
+        <div className="absolute bottom-1/4 -right-24 w-96 h-96 bg-accent/10 rounded-full blur-[120px]" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center p-4 relative overflow-hidden bg-[#0D0B14]">
@@ -101,6 +115,7 @@ export default function AuthPage() {
                     className="bg-white/5 border-white/10"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    suppressHydrationWarning
                   />
                 </div>
                 <div className="space-y-2">
@@ -111,6 +126,7 @@ export default function AuthPage() {
                     className="bg-white/5 border-white/10"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    suppressHydrationWarning
                   />
                 </div>
 
@@ -119,6 +135,7 @@ export default function AuthPage() {
                     className="w-full bg-primary hover:bg-primary/90 text-white" 
                     disabled={loading}
                     onClick={() => handleEmailAuth('login')}
+                    suppressHydrationWarning
                   >
                     {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
                     Sign In
@@ -130,6 +147,7 @@ export default function AuthPage() {
                     className="w-full bg-primary hover:bg-primary/90 text-white" 
                     disabled={loading}
                     onClick={() => handleEmailAuth('register')}
+                    suppressHydrationWarning
                   >
                     {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
                     Create Account
@@ -148,11 +166,11 @@ export default function AuthPage() {
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <Button variant="outline" className="bg-white/5 border-white/10 hover:bg-white/10" onClick={handleGoogleAuth} disabled={loading}>
+              <Button variant="outline" className="bg-white/5 border-white/10 hover:bg-white/10" onClick={handleGoogleAuth} disabled={loading} suppressHydrationWarning>
                 <Chrome className="mr-2 h-4 w-4" />
                 Google
               </Button>
-              <Button variant="outline" className="bg-white/5 border-white/10 hover:bg-white/10" disabled={loading}>
+              <Button variant="outline" className="bg-white/5 border-white/10 hover:bg-white/10" disabled={loading} suppressHydrationWarning>
                 <Github className="mr-2 h-4 w-4" />
                 GitHub
               </Button>

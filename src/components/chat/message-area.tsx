@@ -40,7 +40,12 @@ export function MessageArea({ roomId }: MessageAreaProps) {
   const [inputValue, setInputValue] = useState('');
   const [roomName, setRoomName] = useState('Loading...');
   const [loading, setLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!roomId) return;
@@ -60,8 +65,6 @@ export function MessageArea({ roomId }: MessageAreaProps) {
     fetchRoomInfo();
 
     // Listen for messages
-    // Note: For private messages, we'd need a more complex query joining roomId parts,
-    // but for simplicity we'll use aroomId as the direct filter.
     const q = query(
       collection(db, 'messages'),
       where('roomId', '==', roomId),
@@ -163,7 +166,9 @@ export function MessageArea({ roomId }: MessageAreaProps) {
                     {msg.text}
                   </div>
                   <span className={cn("text-[10px] text-muted-foreground mt-1", isMe ? "text-right" : "text-left")}>
-                    {msg.timestamp?.toDate ? new Date(msg.timestamp.toDate()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '...'}
+                    {msg.timestamp?.toDate && mounted 
+                      ? new Date(msg.timestamp.toDate()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
+                      : '...'}
                   </span>
                 </div>
               </div>
@@ -191,6 +196,7 @@ export function MessageArea({ roomId }: MessageAreaProps) {
             onKeyDown={(e) => e.key === 'Enter' && handleSendMessage(inputValue)}
             placeholder="Write a message..." 
             className="flex-1 bg-transparent border-none shadow-none focus-visible:ring-0 text-sm h-10"
+            suppressHydrationWarning
           />
           <Button variant="ghost" size="icon" className="text-muted-foreground hover:bg-white/5">
             <Smile className="w-5 h-5" />
@@ -199,6 +205,7 @@ export function MessageArea({ roomId }: MessageAreaProps) {
             onClick={() => handleSendMessage(inputValue)}
             disabled={!inputValue.trim()}
             className="bg-primary hover:bg-primary/90 text-white rounded-xl px-4 h-10"
+            suppressHydrationWarning
           >
             <Send className="w-4 h-4 mr-2" />
             Send

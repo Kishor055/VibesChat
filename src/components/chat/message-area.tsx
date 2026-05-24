@@ -51,20 +51,24 @@ export function MessageArea({ roomId }: MessageAreaProps) {
     if (!roomId) return;
 
     setLoading(true);
-    // Determine room info (could be a user or a group)
     const fetchRoomInfo = async () => {
       if (roomId === 'general' || roomId === 'random') {
         setRoomName(roomId.charAt(0).toUpperCase() + roomId.slice(1));
       } else {
-        const userDoc = await getDoc(doc(db, 'users', roomId));
-        if (userDoc.exists()) {
-          setRoomName(userDoc.data().name);
+        try {
+          const userDoc = await getDoc(doc(db, 'users', roomId));
+          if (userDoc.exists()) {
+            setRoomName(userDoc.data().name);
+          } else {
+            setRoomName('Cosmic Channel');
+          }
+        } catch (e) {
+          setRoomName('Cosmic Channel');
         }
       }
     };
     fetchRoomInfo();
 
-    // Listen for messages
     const q = query(
       collection(db, 'messages'),
       where('roomId', '==', roomId),
@@ -86,11 +90,13 @@ export function MessageArea({ roomId }: MessageAreaProps) {
   const handleSendMessage = async (text: string) => {
     if (!text.trim() || !profile) return;
     
+    const messageText = text.trim();
     setInputValue('');
+    
     try {
-      await addDoc(collection(db, 'messages'), {
+      addDoc(collection(db, 'messages'), {
         senderId: profile.uid,
-        text: text.trim(),
+        text: messageText,
         timestamp: serverTimestamp(),
         roomId
       });
@@ -109,12 +115,11 @@ export function MessageArea({ roomId }: MessageAreaProps) {
 
   return (
     <div className="flex-1 flex flex-col h-full bg-background/40">
-      {/* Chat Header */}
       <div className="h-16 flex items-center justify-between px-6 glass border-b border-white/5 z-10">
         <div className="flex items-center gap-3">
           <Avatar className="w-10 h-10 ring-2 ring-primary/20">
             <AvatarImage src={`https://picsum.photos/seed/${roomId}/200/200`} />
-            <AvatarFallback>{roomName[0]}</AvatarFallback>
+            <AvatarFallback>{roomName[0] || '?'}</AvatarFallback>
           </Avatar>
           <div>
             <h2 className="font-semibold text-sm">{roomName}</h2>
@@ -137,7 +142,6 @@ export function MessageArea({ roomId }: MessageAreaProps) {
         </div>
       </div>
 
-      {/* Messages Scroll Area */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-6">
         {loading ? (
           <div className="h-full flex flex-col items-center justify-center space-y-4">
@@ -166,7 +170,7 @@ export function MessageArea({ roomId }: MessageAreaProps) {
                     {msg.text}
                   </div>
                   <span className={cn("text-[10px] text-muted-foreground mt-1", isMe ? "text-right" : "text-left")}>
-                    {msg.timestamp?.toDate && mounted 
+                    {mounted && msg.timestamp?.toDate 
                       ? new Date(msg.timestamp.toDate()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
                       : '...'}
                   </span>
@@ -177,7 +181,6 @@ export function MessageArea({ roomId }: MessageAreaProps) {
         )}
       </div>
 
-      {/* Input Area */}
       <div className="p-6 pt-2 space-y-4">
         {lastReceivedMessage && (
           <SmartReplies 
@@ -196,7 +199,6 @@ export function MessageArea({ roomId }: MessageAreaProps) {
             onKeyDown={(e) => e.key === 'Enter' && handleSendMessage(inputValue)}
             placeholder="Write a message..." 
             className="flex-1 bg-transparent border-none shadow-none focus-visible:ring-0 text-sm h-10"
-            suppressHydrationWarning
           />
           <Button variant="ghost" size="icon" className="text-muted-foreground hover:bg-white/5">
             <Smile className="w-5 h-5" />
@@ -205,7 +207,6 @@ export function MessageArea({ roomId }: MessageAreaProps) {
             onClick={() => handleSendMessage(inputValue)}
             disabled={!inputValue.trim()}
             className="bg-primary hover:bg-primary/90 text-white rounded-xl px-4 h-10"
-            suppressHydrationWarning
           >
             <Send className="w-4 h-4 mr-2" />
             Send

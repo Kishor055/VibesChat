@@ -23,7 +23,7 @@ interface AuthContextType {
 }
 
 const GUEST_PROFILE: UserProfile = {
-  uid: 'guest-user-123',
+  uid: 'guest-cosmic-traveler',
   name: 'Cosmic Traveler',
   email: 'guest@pulsetalk.io',
   avatar: 'https://picsum.photos/seed/guest/200/200',
@@ -48,11 +48,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setMounted(true);
   }, []);
 
+  // System is guest-only per user request
   const value = {
-    user: mounted ? { uid: 'guest-user-123' } : null,
+    user: mounted ? { uid: GUEST_PROFILE.uid } : null,
     profile: mounted ? GUEST_PROFILE : null,
     loading: !mounted,
-    signOut: async () => { console.log("Guest cannot sign out"); },
+    signOut: async () => { console.log("Guest mode active - sign out disabled"); },
     signInWithGoogle: async () => {},
     signInWithEmail: async () => {},
     signUpWithEmail: async () => {},

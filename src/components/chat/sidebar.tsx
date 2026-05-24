@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Hash, Plus, Settings, Search, LayoutGrid, MessageSquare, Sparkles, Check } from 'lucide-react';
+import { Hash, Plus, Settings, Search, LayoutGrid, MessageSquare, Sparkles, Check, Users, UserPlus } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { 
@@ -13,7 +13,9 @@ import {
   query, 
   onSnapshot, 
   addDoc, 
-  serverTimestamp 
+  serverTimestamp,
+  where,
+  getDocs
 } from 'firebase/firestore';
 import { db } from '@/firebase/config';
 import {
@@ -25,10 +27,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { generateAiAvatar } from '@/ai/flows/generate-ai-avatar';
+import { useToast } from '@/hooks/use-toast';
 
 interface ChatSidebarProps {
-  activeView: 'chat' | 'feed';
-  onViewChange: (view: 'chat' | 'feed') => void;
+  activeView: 'chat' | 'feed' | 'friends';
+  onViewChange: (view: 'chat' | 'feed' | 'friends') => void;
   activeRoomId: string;
   onRoomSelect: (roomId: string) => void;
 }
@@ -41,45 +45,43 @@ interface Room {
 
 export function ChatSidebar({ activeView, onViewChange, activeRoomId, onRoomSelect }: ChatSidebarProps) {
   const { profile, updateProfile } = useAuth();
+  const { toast } = useToast();
   const [rooms, setRooms] = useState<Room[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [newRoomName, setNewRoomName] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [isForging, setIsForging] = useState(false);
   const [tempName, setTempName] = useState(profile?.name || '');
 
   useEffect(() => {
     const q = query(collection(db, 'rooms'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const roomsData: Room[] = [
-        { id: 'general', name: 'General', type: 'group' },
-        { id: 'dev-hub', name: 'Dev Hub', type: 'group' }
+        { id: 'general', name: 'General Hub', type: 'group' },
+        { id: 'dev-sector', name: 'Dev Sector', type: 'group' }
       ];
       snapshot.forEach((doc) => {
         roomsData.push({ id: doc.id, ...doc.data() } as Room);
       });
-      const uniqueRooms = roomsData.filter((room, index, self) =>
-        index === self.findIndex((t) => t.id === room.id)
-      );
-      setRooms(uniqueRooms);
+      setRooms(roomsData);
     });
-
     return () => unsubscribe();
   }, []);
 
-  const handleCreateRoom = async () => {
-    if (!newRoomName.trim()) return;
+  const handleForgeAvatar = async () => {
+    if (!profile) return;
+    setIsForging(true);
     try {
-      addDoc(collection(db, 'rooms'), {
-        name: newRoomName.trim(),
-        type: 'group',
-        createdAt: serverTimestamp(),
-        createdBy: profile?.uid
-      });
-      setNewRoomName('');
-      setIsDialogOpen(false);
+      const result = await generateAiAvatar({ theme: "A futuristic cosmic explorer with glowing armor" });
+      if (result?.avatarUrl) {
+        updateProfile({ avatar: result.avatarUrl });
+        toast({ title: "Identity Re-Forged", description: "Your cosmic avatar has been manifested by AI." });
+      }
     } catch (e) {
-      // Background handling
+      toast({ variant: "destructive", title: "Forge Failed", description: "AI signal lost." });
+    } finally {
+      setIsForging(false);
     }
   };
 
@@ -88,19 +90,15 @@ export function ChatSidebar({ activeView, onViewChange, activeRoomId, onRoomSele
     setIsEditingProfile(false);
   };
 
-  const filteredRooms = rooms.filter(r => 
-    r.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
   return (
     <div className="w-80 h-full flex flex-col glass-darker border-r border-white/5">
       <div className="p-6 border-b border-white/5">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
               <span className="text-white font-bold text-xl">V</span>
             </div>
-            <h1 className="font-headline font-bold text-xl tracking-tight">VibeChat</h1>
+            <h1 className="font-headline font-bold text-xl tracking-tighter text-foreground">VibeChat</h1>
           </div>
           
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -111,44 +109,56 @@ export function ChatSidebar({ activeView, onViewChange, activeRoomId, onRoomSele
             </DialogTrigger>
             <DialogContent className="glass-darker border-white/10 text-white">
               <DialogHeader>
-                <DialogTitle>Create New Channel</DialogTitle>
+                <DialogTitle>Forge New Sector</DialogTitle>
                 <DialogDescription className="text-muted-foreground">
-                  Channels are where your team communicates. Best for project hubs.
+                  Establish a new communications hub in the cosmic network.
                 </DialogDescription>
               </DialogHeader>
               <div className="py-4">
                 <Input
-                  placeholder="e.g. creative-hub"
+                  placeholder="Sector Name (e.g. creative-outpost)"
                   value={newRoomName}
                   onChange={(e) => setNewRoomName(e.target.value)}
-                  className="bg-white/5 border-white/10"
+                  className="bg-white/5 border-white/10 focus:ring-primary"
                 />
               </div>
               <DialogFooter>
-                <Button variant="ghost" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-                <Button onClick={handleCreateRoom} className="bg-primary hover:bg-primary/90">Create Channel</Button>
+                <Button variant="ghost" onClick={() => setIsDialogOpen(false)}>Abort</Button>
+                <Button onClick={() => {
+                   if(newRoomName.trim()){
+                     addDoc(collection(db, 'rooms'), { name: newRoomName.trim(), type: 'group', createdAt: serverTimestamp(), createdBy: profile?.uid });
+                     setNewRoomName(''); setIsDialogOpen(false);
+                   }
+                }} className="bg-primary hover:bg-primary/90">Initialize</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
         </div>
 
-        {/* Navigation Mode Toggles */}
-        <div className="grid grid-cols-2 gap-2 mb-6">
+        <div className="grid grid-cols-3 gap-1 mb-6">
           <Button 
             variant="ghost" 
             onClick={() => onViewChange('chat')}
-            className={cn("h-9 rounded-xl gap-2", activeView === 'chat' ? "bg-primary text-white" : "text-muted-foreground hover:bg-white/5")}
+            className={cn("h-10 rounded-xl flex-col p-1 h-auto", activeView === 'chat' ? "bg-primary text-white" : "text-muted-foreground hover:bg-white/5")}
           >
-            <MessageSquare className="w-4 h-4" />
-            <span className="text-xs">Chat</span>
+            <MessageSquare className="w-4 h-4 mb-0.5" />
+            <span className="text-[10px] uppercase font-bold tracking-tighter">Chat</span>
           </Button>
           <Button 
             variant="ghost" 
             onClick={() => onViewChange('feed')}
-            className={cn("h-9 rounded-xl gap-2", activeView === 'feed' ? "bg-primary text-white" : "text-muted-foreground hover:bg-white/5")}
+            className={cn("h-10 rounded-xl flex-col p-1 h-auto", activeView === 'feed' ? "bg-primary text-white" : "text-muted-foreground hover:bg-white/5")}
           >
-            <LayoutGrid className="w-4 h-4" />
-            <span className="text-xs">Feed</span>
+            <LayoutGrid className="w-4 h-4 mb-0.5" />
+            <span className="text-[10px] uppercase font-bold tracking-tighter">Feed</span>
+          </Button>
+          <Button 
+            variant="ghost" 
+            onClick={() => onViewChange('friends')}
+            className={cn("h-10 rounded-xl flex-col p-1 h-auto", activeView === 'friends' ? "bg-primary text-white" : "text-muted-foreground hover:bg-white/5")}
+          >
+            <Users className="w-4 h-4 mb-0.5" />
+            <span className="text-[10px] uppercase font-bold tracking-tighter">Social</span>
           </Button>
         </div>
 
@@ -158,7 +168,7 @@ export function ChatSidebar({ activeView, onViewChange, activeRoomId, onRoomSele
             placeholder="Search network..." 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 bg-white/5 border-white/10 focus:ring-primary/50"
+            className="pl-9 bg-white/5 border-white/10 focus:ring-primary/50 text-xs"
             suppressHydrationWarning
           />
         </div>
@@ -166,62 +176,63 @@ export function ChatSidebar({ activeView, onViewChange, activeRoomId, onRoomSele
 
       <ScrollArea className="flex-1">
         <div className="p-4 space-y-8">
-          {activeView === 'chat' ? (
+          {activeView === 'chat' && (
             <div>
-              <div className="flex items-center justify-between px-2 mb-3">
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Channels</span>
-              </div>
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-2 mb-3 block">Active Sectors</span>
               <div className="space-y-1">
-                {filteredRooms.map(room => (
+                {rooms.filter(r => r.name.toLowerCase().includes(searchQuery.toLowerCase())).map(room => (
                   <button
                     key={room.id}
                     onClick={() => onRoomSelect(room.id)}
                     className={cn(
-                      "w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group",
-                      activeRoomId === room.id ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
+                      "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group",
+                      activeRoomId === room.id ? "bg-primary text-white shadow-xl shadow-primary/20" : "text-muted-foreground hover:bg-white/5"
                     )}
                   >
-                    <Hash className={cn("w-4 h-4", activeRoomId === room.id ? "text-white" : "text-muted-foreground group-hover:text-primary")} />
-                    <span className="text-sm font-medium">{room.name}</span>
+                    <Hash className={cn("w-4 h-4", activeRoomId === room.id ? "text-white" : "text-primary/60 group-hover:text-primary")} />
+                    <span className="text-sm font-semibold truncate">{room.name}</span>
                   </button>
                 ))}
               </div>
             </div>
-          ) : (
-            <div>
-              <div className="flex items-center justify-between px-2 mb-3">
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Global Stream</span>
-              </div>
-              <div className="px-2 space-y-4">
-                <div className="p-3 glass-card rounded-xl border-primary/20">
-                  <div className="flex items-center gap-2 text-primary mb-2">
-                    <Sparkles className="w-3 h-3" />
-                    <span className="text-[10px] font-bold uppercase">Trending Visuals</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    Browse visual moments shared across the cosmic network. React and interact live.
-                  </p>
-                </div>
-              </div>
+          )}
+          
+          {activeView === 'friends' && (
+            <div className="space-y-6">
+               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-2 block">Network Contacts</span>
+               <div className="p-3 glass-card rounded-xl border-white/5 text-center">
+                  <UserPlus className="w-8 h-8 mx-auto mb-2 text-primary/40" />
+                  <p className="text-xs text-muted-foreground mb-3">Invite others to your sector to bridge the cosmic gap.</p>
+                  <Button variant="outline" size="sm" className="w-full text-[10px] uppercase font-bold border-white/10">Broadcast Invitation</Button>
+               </div>
             </div>
           )}
         </div>
       </ScrollArea>
 
       <div className="p-4 mt-auto border-t border-white/5">
-        <div className="flex flex-col gap-3 p-3 glass-card rounded-xl">
+        <div className="flex flex-col gap-3 p-4 glass-card rounded-2xl border-white/5 shadow-2xl">
           <div className="flex items-center gap-3">
-            <Avatar className="w-10 h-10 border border-white/10">
-              <AvatarImage src={profile?.avatar} />
-              <AvatarFallback>{profile?.name?.[0] || '?'}</AvatarFallback>
-            </Avatar>
+            <div className="relative group">
+              <Avatar className="w-10 h-10 border border-white/10 ring-1 ring-white/5">
+                <AvatarImage src={profile?.avatar} />
+                <AvatarFallback>{profile?.name?.[0]}</AvatarFallback>
+              </Avatar>
+              <button 
+                onClick={handleForgeAvatar}
+                disabled={isForging}
+                className="absolute -top-1 -right-1 w-5 h-5 bg-primary rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity border-2 border-background shadow-lg"
+              >
+                {isForging ? <Loader2 className="w-3 h-3 text-white animate-spin" /> : <Sparkles className="w-3 h-3 text-white" />}
+              </button>
+            </div>
             <div className="flex-1 min-w-0">
               {isEditingProfile ? (
                 <div className="flex items-center gap-1">
                   <Input 
                     value={tempName} 
                     onChange={(e) => setTempName(e.target.value)} 
-                    className="h-7 text-xs bg-white/10 border-none"
+                    className="h-7 text-xs bg-white/10 border-none px-2 focus:ring-0"
                     autoFocus
                     suppressHydrationWarning
                   />
@@ -230,15 +241,15 @@ export function ChatSidebar({ activeView, onViewChange, activeRoomId, onRoomSele
                   </Button>
                 </div>
               ) : (
-                <>
-                  <p className="text-sm font-semibold truncate flex items-center gap-2">
+                <div className="flex flex-col">
+                  <p className="text-sm font-bold truncate flex items-center gap-2 text-foreground">
                     {profile?.name}
                     <button onClick={() => setIsEditingProfile(true)}>
                       <Settings className="w-3 h-3 text-muted-foreground hover:text-white" />
                     </button>
                   </p>
-                  <p className="text-[10px] text-muted-foreground truncate uppercase tracking-tighter">Verified Traveler</p>
-                </>
+                  <p className="text-[10px] text-primary uppercase font-bold tracking-tighter">Level 1 Voyager</p>
+                </div>
               )}
             </div>
           </div>

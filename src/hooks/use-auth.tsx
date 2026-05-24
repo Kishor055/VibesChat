@@ -1,17 +1,7 @@
+
 "use client";
 
 import React, { createContext, useContext, ReactNode, useState, useEffect } from 'react';
-import { 
-  onAuthStateChanged, 
-  User as FirebaseUser,
-  signInWithPopup,
-  GoogleAuthProvider,
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signOut as firebaseSignOut
-} from 'firebase/auth';
-import { auth, db } from '@/firebase/config';
-import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 
 interface UserProfile {
   uid: string;
@@ -23,7 +13,7 @@ interface UserProfile {
 }
 
 interface AuthContextType {
-  user: FirebaseUser | null;
+  user: any;
   profile: UserProfile | null;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
@@ -31,6 +21,15 @@ interface AuthContextType {
   signInWithEmail: (email: string, pass: string) => Promise<void>;
   signUpWithEmail: (email: string, pass: string) => Promise<void>;
 }
+
+const GUEST_PROFILE: UserProfile = {
+  uid: 'guest-user-123',
+  name: 'Cosmic Traveler',
+  email: 'guest@pulsetalk.io',
+  avatar: 'https://picsum.photos/seed/guest/200/200',
+  status: 'online',
+  lastSeen: new Date(),
+};
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
@@ -43,79 +42,24 @@ const AuthContext = createContext<AuthContextType>({
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setUser(firebaseUser);
-      
-      if (firebaseUser) {
-        const userDocRef = doc(db, 'users', firebaseUser.uid);
-        const userDoc = await getDoc(userDocRef);
-        
-        if (userDoc.exists()) {
-          const data = userDoc.data() as UserProfile;
-          setProfile(data);
-          updateDoc(userDocRef, {
-            status: 'online',
-            lastSeen: serverTimestamp()
-          });
-        } else {
-          const newProfile: UserProfile = {
-            uid: firebaseUser.uid,
-            name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'New Traveler',
-            email: firebaseUser.email || '',
-            avatar: firebaseUser.photoURL || `https://picsum.photos/seed/${firebaseUser.uid}/200/200`,
-            status: 'online',
-            lastSeen: serverTimestamp(),
-          };
-          await setDoc(userDocRef, newProfile);
-          setProfile(newProfile);
-        }
-      } else {
-        setProfile(null);
-      }
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
+    setMounted(true);
   }, []);
 
-  const signInWithGoogle = async () => {
-    const provider = new GoogleAuthProvider();
-    await signInWithPopup(auth, provider);
-  };
-
-  const signInWithEmail = async (email: string, pass: string) => {
-    await signInWithEmailAndPassword(auth, email, pass);
-  };
-
-  const signUpWithEmail = async (email: string, pass: string) => {
-    await createUserWithEmailAndPassword(auth, email, pass);
-  };
-
-  const signOut = async () => {
-    if (user) {
-      await updateDoc(doc(db, 'users', user.uid), {
-        status: 'offline',
-        lastSeen: serverTimestamp()
-      });
-    }
-    await firebaseSignOut(auth);
+  const value = {
+    user: mounted ? { uid: 'guest-user-123' } : null,
+    profile: mounted ? GUEST_PROFILE : null,
+    loading: !mounted,
+    signOut: async () => { console.log("Guest cannot sign out"); },
+    signInWithGoogle: async () => {},
+    signInWithEmail: async () => {},
+    signUpWithEmail: async () => {},
   };
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      profile, 
-      loading, 
-      signOut, 
-      signInWithGoogle, 
-      signInWithEmail, 
-      signUpWithEmail 
-    }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

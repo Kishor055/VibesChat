@@ -1,15 +1,14 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { useRouter } from 'next/navigation';
 import { ChatSidebar } from '@/components/chat/sidebar';
 import { MessageArea } from '@/components/chat/message-area';
 import { Loader2 } from 'lucide-react';
 
 export default function PulseTalkApp() {
-  const { user, profile, loading } = useAuth();
-  const router = useRouter();
+  const { profile, loading } = useAuth();
   const [activeRoomId, setActiveRoomId] = useState('general');
   const [mounted, setMounted] = useState(false);
 
@@ -17,13 +16,7 @@ export default function PulseTalkApp() {
     setMounted(true);
   }, []);
 
-  useEffect(() => {
-    if (mounted && !loading && !user) {
-      router.push('/auth');
-    }
-  }, [mounted, loading, user, router]);
-
-  if (!mounted || loading || !user) {
+  if (!mounted || loading || !profile) {
     return (
       <div className="h-screen w-full flex flex-col items-center justify-center bg-[#0D0B14]">
          <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center mb-6 shadow-2xl shadow-primary/40 animate-pulse">
@@ -70,7 +63,7 @@ export default function PulseTalkApp() {
                 <div>
                   <h4 className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest mb-3">Workspace Information</h4>
                   <p className="text-sm text-muted-foreground leading-relaxed">
-                    You are connected to the encrypted cosmic channel. All communications are secured with end-to-end Firebase security rules.
+                    You are connected to the encrypted cosmic channel. Access is currently public for guest users.
                   </p>
                 </div>
 
@@ -78,7 +71,7 @@ export default function PulseTalkApp() {
                   <h4 className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest mb-3">Network Status</h4>
                   <div className="flex items-center gap-2 text-xs text-green-500 font-medium">
                     <span className="w-2 h-2 rounded-full bg-green-500 animate-ping" />
-                    Secure Real-time Link Active
+                    Secure Link Active (Guest Mode)
                   </div>
                 </div>
 

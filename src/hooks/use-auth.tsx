@@ -7,7 +7,8 @@ import {
   User as FirebaseUser,
   signOut as firebaseSignOut,
   GoogleAuthProvider,
-  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
 } from 'firebase/auth';
@@ -49,10 +50,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setUser(user);
-      if (user) {
-        const userDoc = doc(db, 'users', user.uid);
+    // Handle the redirect result for Google Sign-In
+    getRedirectResult(auth).catch((error) => {
+      console.error("Error handling Google Redirect result:", error);
+    });
+
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        const userDoc = doc(db, 'users', currentUser.uid);
         try {
           const snap = await getDoc(userDoc);
           
@@ -65,10 +71,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             });
           } else {
             const newProfile: UserProfile = {
-              uid: user.uid,
-              name: user.displayName || user.email?.split('@')[0] || 'Anonymous',
-              email: user.email || '',
-              avatar: user.photoURL || `https://picsum.photos/seed/${user.uid}/200/200`,
+              uid: currentUser.uid,
+              name: currentUser.displayName || currentUser.email?.split('@')[0] || 'Anonymous',
+              email: currentUser.email || '',
+              avatar: currentUser.photoURL || `https://picsum.photos/seed/${currentUser.uid}/200/200`,
               status: 'online',
               lastSeen: serverTimestamp(),
             };
@@ -89,7 +95,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
-    await signInWithPopup(auth, provider);
+    // Using redirect instead of popup to bypass popup blockers
+    await signInWithRedirect(auth, provider);
   };
 
   const signInWithEmail = async (email: string, pass: string) => {

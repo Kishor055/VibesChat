@@ -24,10 +24,13 @@ export default function AuthPage() {
 
   useEffect(() => {
     setMounted(true);
-    if (user) {
+  }, []);
+
+  useEffect(() => {
+    if (mounted && user) {
       router.push('/');
     }
-  }, [user, router]);
+  }, [user, router, mounted]);
 
   const handleEmailAuth = async (type: 'login' | 'register') => {
     setLoading(true);
@@ -53,7 +56,7 @@ export default function AuthPage() {
     setLoading(true);
     try {
       await signInWithGoogle();
-      router.push('/');
+      // Redirect handled by hook
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -112,7 +115,6 @@ export default function AuthPage() {
                     className="bg-white/5 border-white/10"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    suppressHydrationWarning
                   />
                 </div>
                 <div className="space-y-2">
@@ -123,7 +125,6 @@ export default function AuthPage() {
                     className="bg-white/5 border-white/10"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    suppressHydrationWarning
                   />
                 </div>
 
@@ -132,7 +133,6 @@ export default function AuthPage() {
                     className="w-full bg-primary hover:bg-primary/90 text-white" 
                     disabled={loading}
                     onClick={() => handleEmailAuth('login')}
-                    suppressHydrationWarning
                   >
                     {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
                     Sign In
@@ -144,7 +144,6 @@ export default function AuthPage() {
                     className="w-full bg-primary hover:bg-primary/90 text-white" 
                     disabled={loading}
                     onClick={() => handleEmailAuth('register')}
-                    suppressHydrationWarning
                   >
                     {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
                     Create Account
@@ -163,11 +162,11 @@ export default function AuthPage() {
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <Button variant="outline" className="bg-white/5 border-white/10 hover:bg-white/10" onClick={handleGoogleAuth} disabled={loading} suppressHydrationWarning>
+              <Button variant="outline" className="bg-white/5 border-white/10 hover:bg-white/10" onClick={handleGoogleAuth} disabled={loading}>
                 <Chrome className="mr-2 h-4 w-4" />
                 Google
               </Button>
-              <Button variant="outline" className="bg-white/5 border-white/10 hover:bg-white/10" disabled={loading} suppressHydrationWarning>
+              <Button variant="outline" className="bg-white/5 border-white/10 hover:bg-white/10" disabled={loading}>
                 <Github className="mr-2 h-4 w-4" />
                 GitHub
               </Button>

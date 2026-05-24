@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Hash, Plus, Settings, Search, LayoutGrid, MessageSquare, Sparkles, Check, Users, Radio, Share2, Loader2 } from 'lucide-react';
+import { Hash, Plus, Settings, Search, LayoutGrid, MessageSquare, Sparkles, Check, Users, Radio, Share2, Loader2, UserPlus } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { 
@@ -117,16 +117,47 @@ export function ChatSidebar({ activeView, onViewChange, activeRoomId, onRoomSele
   };
 
   const handleBroadcastInvite = () => {
+    if (!profile) return;
     setIsBroadcasting(true);
-    const inviteLink = `${window.location.origin}/join/${profile?.uid}`;
-    setTimeout(() => {
-      navigator.clipboard.writeText(inviteLink);
-      toast({
-        title: "Broadcast Active",
-        description: "Sector-wide invitation pulse sent. Link copied to clipboard.",
-      });
+    
+    const inviteLink = `${window.location.origin}?invite=${profile.uid}`;
+    
+    // Robust clipboard copy with fallback
+    const copyToClipboard = async (text: string) => {
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch (err) {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+          document.execCommand('copy');
+          document.body.removeChild(textArea);
+          return true;
+        } catch (e) {
+          document.body.removeChild(textArea);
+          return false;
+        }
+      }
+    };
+
+    copyToClipboard(inviteLink).then((success) => {
+      if (success) {
+        toast({
+          title: "Broadcast Pulse Active",
+          description: "Invitation link copied to communication buffer. Distribute across sectors.",
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Signal Corrupted",
+          description: "Failed to copy invite link. Please try again.",
+        });
+      }
       setIsBroadcasting(false);
-    }, 1200);
+    });
   };
 
   const startPrivateChat = async (friend: Friend) => {
@@ -151,6 +182,14 @@ export function ChatSidebar({ activeView, onViewChange, activeRoomId, onRoomSele
     updateProfile({ name: tempName });
     setIsEditingProfile(false);
   };
+
+  const filteredFriends = friends.filter(f => 
+    f.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const filteredRooms = rooms.filter(r => 
+    r.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <div className="w-80 h-full flex flex-col glass-darker border-r border-white/5">
@@ -246,7 +285,7 @@ export function ChatSidebar({ activeView, onViewChange, activeRoomId, onRoomSele
             <div>
               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest ml-2 mb-3 block">Sector Channels</span>
               <div className="space-y-1">
-                {rooms.filter(r => r.name.toLowerCase().includes(searchQuery.toLowerCase())).map(room => (
+                {filteredRooms.map(room => (
                   <button
                     key={room.id}
                     onClick={() => onRoomSelect(room.id)}
@@ -263,6 +302,9 @@ export function ChatSidebar({ activeView, onViewChange, activeRoomId, onRoomSele
                     <span className="text-sm font-semibold truncate">{room.name}</span>
                   </button>
                 ))}
+                {filteredRooms.length === 0 && (
+                  <p className="text-[10px] text-muted-foreground italic ml-3 mt-4">No sectors matching query.</p>
+                )}
               </div>
             </div>
           )}
@@ -283,7 +325,7 @@ export function ChatSidebar({ activeView, onViewChange, activeRoomId, onRoomSele
                  </Button>
                </div>
                <div className="space-y-2">
-                 {friends.filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase())).map(friend => (
+                 {filteredFriends.map(friend => (
                    <div key={friend.uid} className="flex items-center justify-between p-2 glass-card rounded-xl border-white/5 group hover:border-primary/30 transition-all">
                      <div className="flex items-center gap-3">
                        <Avatar className="w-8 h-8">
@@ -309,11 +351,18 @@ export function ChatSidebar({ activeView, onViewChange, activeRoomId, onRoomSele
                    </div>
                  ))}
                  
-                 {friends.length === 0 && (
+                 {friends.length === 0 && !searchQuery && (
                    <div className="p-6 glass-card rounded-2xl border-white/5 text-center space-y-4">
                      <Loader2 className="w-8 h-8 mx-auto text-primary animate-spin opacity-40" />
                      <p className="text-[10px] text-muted-foreground">Scanning for nearby explorers...</p>
                    </div>
+                 )}
+
+                 {filteredFriends.length === 0 && searchQuery && (
+                    <div className="p-6 glass-card rounded-2xl border-white/5 text-center space-y-2">
+                      <UserPlus className="w-6 h-6 mx-auto text-muted-foreground opacity-30" />
+                      <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">No explorers found</p>
+                    </div>
                  )}
                </div>
             </div>

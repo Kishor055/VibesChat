@@ -83,7 +83,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       updateDoc(userDocRef, {
         status: 'online',
         lastSeen: serverTimestamp()
-      }).catch(() => {});
+      }).catch(() => {
+        // Fallback for first-time profile creation
+        setDoc(userDocRef, {
+            ...currentProfile,
+            lastSeen: serverTimestamp(),
+            status: 'online'
+        }, { merge: true });
+      });
 
       return unsubscribe;
     };

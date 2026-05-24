@@ -5,7 +5,20 @@ import { useAuth } from '@/hooks/use-auth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Send, Smile, Paperclip, MoreVertical, Search, Loader2, X, MessageSquare } from 'lucide-react';
+import { 
+  Send, 
+  Smile, 
+  Paperclip, 
+  MoreVertical, 
+  Search, 
+  Loader2, 
+  X, 
+  MessageSquare, 
+  FileText, 
+  Download,
+  Image as ImageIcon,
+  Film
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SmartReplies } from './smart-replies';
 import { 
@@ -23,6 +36,12 @@ import {
 import { db } from '@/firebase/config';
 import { motion, AnimatePresence } from 'framer-motion';
 
+interface Attachment {
+  url: string;
+  type: 'image' | 'video' | 'document';
+  name: string;
+}
+
 interface Message {
   id: string;
   senderId: string;
@@ -31,6 +50,7 @@ interface Message {
   timestamp: any;
   roomId: string;
   reactions?: { [emoji: string]: string[] };
+  attachment?: Attachment;
 }
 
 interface MessageAreaProps {
@@ -48,7 +68,11 @@ export function MessageArea({ roomId }: MessageAreaProps) {
   const [mounted, setMounted] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [pendingAttachment, setPendingAttachment] = useState<Attachment | null>(null);
+  
   const scrollRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -66,7 +90,6 @@ export function MessageArea({ roomId }: MessageAreaProps) {
       } else if (roomId === 'general' || roomId === 'dev-sector') {
         setRoomName(roomId.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' '));
       } else if (roomId.includes('-')) {
-        // Private chat room name formatting
         setRoomName('Direct Transmission');
       }
     });
@@ -94,11 +117,37 @@ export function MessageArea({ roomId }: MessageAreaProps) {
     };
   }, [roomId]);
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const url = event.target?.result as string;
+      let type: 'image' | 'video' | 'document' = 'document';
+      
+      if (file.type.startsWith('image/')) type = 'image';
+      else if (file.type.startsWith('video/')) type = 'video';
+
+      setPendingAttachment({
+        url,
+        type,
+        name: file.name
+      });
+      setIsUploading(false);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSendMessage = async (text: string) => {
-    if (!text.trim() || !profile) return;
+    if ((!text.trim() && !pendingAttachment) || !profile) return;
     
     const messageText = text.trim();
+    const attachment = pendingAttachment;
+    
     setInputValue('');
+    setPendingAttachment(null);
     
     addDoc(collection(db, 'messages'), {
       senderId: profile.uid,
@@ -106,7 +155,8 @@ export function MessageArea({ roomId }: MessageAreaProps) {
       text: messageText,
       timestamp: serverTimestamp(),
       roomId,
-      reactions: {}
+      reactions: {},
+      ...(attachment && { attachment })
     });
   };
 
@@ -122,7 +172,7 @@ export function MessageArea({ roomId }: MessageAreaProps) {
     if (scrollRef.current && !isSearching) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, isSearching]);
+  }, [messages, isSearching, pendingAttachment]);
 
   if (!mounted) return null;
 
@@ -203,12 +253,51 @@ export function MessageArea({ roomId }: MessageAreaProps) {
                   
                   <div className="relative group/bubble">
                     <div className={cn(
-                      "px-4 py-2.5 rounded-2xl text-sm shadow-sm transition-all",
-                      isMe 
-                        ? "bg-primary text-white rounded-br-none" 
-                        : "glass-card text-foreground rounded-bl-none"
+                      "flex flex-col gap-2 p-1 transition-all",
+                      isMe ? "items-end" : "items-start"
                     )}>
-                      {msg.text}
+                      {msg.attachment && (
+                        <div className={cn(
+                          "overflow-hidden rounded-2xl shadow-xl max-w-sm border border-white/10",
+                          isMe ? "bg-primary/20" : "glass-card"
+                        )}>
+                          {msg.attachment.type === 'image' && (
+                            <img src={msg.attachment.url} alt="Attachment" className="w-full h-auto object-contain max-h-[300px]" />
+                          )}
+                          {msg.attachment.type === 'video' && (
+                            <video src={msg.attachment.url} controls className="w-full max-h-[300px]" />
+                          )}
+                          {msg.attachment.type === 'document' && (
+                            <div className="flex items-center gap-3 p-4">
+                              <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
+                                <FileText className="w-5 h-5 text-primary" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-bold truncate">{msg.attachment.name}</p>
+                                <p className="text-[10px] text-muted-foreground">Document</p>
+                              </div>
+                              <a 
+                                href={msg.attachment.url} 
+                                download={msg.attachment.name}
+                                className="w-8 h-8 rounded-full hover:bg-white/10 flex items-center justify-center transition-colors"
+                              >
+                                <Download className="w-4 h-4 text-primary" />
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      {msg.text && (
+                        <div className={cn(
+                          "px-4 py-2.5 rounded-2xl text-sm shadow-sm",
+                          isMe 
+                            ? "bg-primary text-white rounded-br-none" 
+                            : "glass-card text-foreground rounded-bl-none"
+                        )}>
+                          {msg.text}
+                        </div>
+                      )}
                     </div>
 
                     <div className={cn(
@@ -256,16 +345,51 @@ export function MessageArea({ roomId }: MessageAreaProps) {
       </div>
 
       <div className="p-6 pt-2 space-y-4">
-        {lastReceivedMessage && !isSearching && (
+        {lastReceivedMessage && !isSearching && !pendingAttachment && (
           <SmartReplies 
             lastMessage={lastReceivedMessage.text} 
             onReplySelect={handleSendMessage} 
           />
         )}
         
+        {pendingAttachment && (
+          <div className="px-4 py-3 glass-card rounded-2xl border-primary/30 flex items-center justify-between animate-in slide-in-from-bottom-2">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl overflow-hidden bg-white/5 flex items-center justify-center border border-white/10">
+                {pendingAttachment.type === 'image' ? (
+                  <img src={pendingAttachment.url} className="w-full h-full object-cover" alt="preview" />
+                ) : pendingAttachment.type === 'video' ? (
+                  <Film className="w-5 h-5 text-primary" />
+                ) : (
+                  <FileText className="w-5 h-5 text-primary" />
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold truncate">{pendingAttachment.name}</p>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Ready to transmit</p>
+              </div>
+            </div>
+            <Button variant="ghost" size="icon" onClick={() => setPendingAttachment(null)} className="rounded-full hover:bg-red-500/20 text-red-500">
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+        )}
+
         <div className="flex items-center gap-3 glass-card p-2 rounded-2xl border-white/10 ring-1 ring-white/5">
-          <Button variant="ghost" size="icon" className="text-muted-foreground hover:bg-white/5 rounded-full">
-            <Paperclip className="w-5 h-5" />
+          <input 
+            type="file" 
+            className="hidden" 
+            ref={fileInputRef} 
+            onChange={handleFileChange}
+          />
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="text-muted-foreground hover:bg-white/5 rounded-full"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+          >
+            {isUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Paperclip className="w-5 h-5" />}
           </Button>
           <Input 
             value={inputValue}
@@ -279,7 +403,7 @@ export function MessageArea({ roomId }: MessageAreaProps) {
           </Button>
           <Button 
             onClick={() => handleSendMessage(inputValue)}
-            disabled={!inputValue.trim()}
+            disabled={(!inputValue.trim() && !pendingAttachment) || isUploading}
             className="bg-primary hover:bg-primary/90 text-white rounded-xl px-4 h-10 shadow-lg shadow-primary/20"
           >
             <Send className="w-4 h-4 mr-2" />

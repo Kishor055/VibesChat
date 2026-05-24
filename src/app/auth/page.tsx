@@ -2,13 +2,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { auth } from '@/firebase/config';
-import { 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  GoogleAuthProvider, 
-  signInWithPopup 
-} from 'firebase/auth';
+import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,18 +20,22 @@ export default function AuthPage() {
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
+  const { user, signInWithGoogle, signInWithEmail, signUpWithEmail } = useAuth();
 
   useEffect(() => {
     setMounted(true);
-  }, []);
+    if (user) {
+      router.push('/');
+    }
+  }, [user, router]);
 
   const handleEmailAuth = async (type: 'login' | 'register') => {
     setLoading(true);
     try {
       if (type === 'login') {
-        await signInWithEmailAndPassword(auth, email, password);
+        await signInWithEmail(email, password);
       } else {
-        await createUserWithEmailAndPassword(auth, email, password);
+        await signUpWithEmail(email, password);
       }
       router.push('/');
     } catch (error: any) {
@@ -53,9 +51,8 @@ export default function AuthPage() {
 
   const handleGoogleAuth = async () => {
     setLoading(true);
-    const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
+      await signInWithGoogle();
       router.push('/');
     } catch (error: any) {
       toast({

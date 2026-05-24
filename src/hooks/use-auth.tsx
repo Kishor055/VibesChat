@@ -5,7 +5,11 @@ import React, { useState, useEffect, createContext, useContext } from 'react';
 import { 
   onAuthStateChanged, 
   User as FirebaseUser,
-  signOut as firebaseSignOut
+  signOut as firebaseSignOut,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
 } from 'firebase/auth';
 import { auth, db } from '@/firebase/config';
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
@@ -23,14 +27,20 @@ interface AuthContextType {
   user: FirebaseUser | null;
   profile: UserProfile | null;
   loading: boolean;
+  signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
+  signInWithEmail: (email: string, pass: string) => Promise<void>;
+  signUpWithEmail: (email: string, pass: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   profile: null,
   loading: true,
+  signInWithGoogle: async () => {},
   signOut: async () => {},
+  signInWithEmail: async () => {},
+  signUpWithEmail: async () => {},
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -49,13 +59,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (snap.exists()) {
             const data = snap.data() as UserProfile;
             setProfile(data);
-            // Update status to online
-            await updateDoc(userDoc, {
+            updateDoc(userDoc, {
               status: 'online',
               lastSeen: serverTimestamp(),
             });
           } else {
-            // Create new user profile
             const newProfile: UserProfile = {
               uid: user.uid,
               name: user.displayName || user.email?.split('@')[0] || 'Anonymous',
@@ -79,6 +87,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => unsubscribe();
   }, []);
 
+  const signInWithGoogle = async () => {
+    const provider = new GoogleAuthProvider();
+    await signInWithPopup(auth, provider);
+  };
+
+  const signInWithEmail = async (email: string, pass: string) => {
+    await signInWithEmailAndPassword(auth, email, pass);
+  };
+
+  const signUpWithEmail = async (email: string, pass: string) => {
+    await createUserWithEmailAndPassword(auth, email, pass);
+  };
+
   const signOut = async () => {
     if (user) {
       try {
@@ -94,7 +115,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signOut }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      profile, 
+      loading, 
+      signOut, 
+      signInWithGoogle, 
+      signInWithEmail, 
+      signUpWithEmail 
+    }}>
       {children}
     </AuthContext.Provider>
   );

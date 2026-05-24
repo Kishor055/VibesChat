@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -56,7 +55,6 @@ export default function AuthPage() {
     setLoading(true);
     try {
       await signInWithGoogle();
-      // Redirect handled by hook
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -78,8 +76,7 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center p-4 relative overflow-hidden bg-[#0D0B14]">
-      {/* Background Orbs */}
+    <div className="min-h-screen w-full flex items-center justify-center p-4 relative overflow-hidden bg-[#0D0B14]" suppressHydrationWarning>
       <div className="absolute top-1/4 -left-24 w-96 h-96 bg-primary/20 rounded-full blur-[120px] animate-pulse" />
       <div className="absolute bottom-1/4 -right-24 w-96 h-96 bg-accent/10 rounded-full blur-[120px] animate-pulse delay-1000" />
 

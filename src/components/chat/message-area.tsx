@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -59,18 +60,15 @@ export function MessageArea({ roomId }: MessageAreaProps) {
 
     setLoading(true);
 
-    // Using onSnapshot for room info is more resilient to offline states than getDoc
     const roomRef = doc(db, 'rooms', roomId);
     const unsubscribeRoom = onSnapshot(roomRef, (snapshot) => {
       if (snapshot.exists()) {
         setRoomName(snapshot.data().name);
-      } else if (roomId === 'general' || roomId === 'dev-hub') {
+      } else if (roomId === 'general' || roomId === 'dev-sector') {
         setRoomName(roomId.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' '));
-      }
-    }, () => {
-      // Fallback on error/offline
-      if (roomId === 'general' || roomId === 'dev-hub') {
-        setRoomName(roomId.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' '));
+      } else if (roomId.includes('-')) {
+        // Private chat room name formatting
+        setRoomName('Direct Transmission');
       }
     });
 
@@ -103,7 +101,6 @@ export function MessageArea({ roomId }: MessageAreaProps) {
     const messageText = text.trim();
     setInputValue('');
     
-    // Non-blocking mutation for offline responsiveness
     addDoc(collection(db, 'messages'), {
       senderId: profile.uid,
       senderName: profile.name,
@@ -137,7 +134,7 @@ export function MessageArea({ roomId }: MessageAreaProps) {
   const lastReceivedMessage = [...messages].reverse().find(m => m.senderId !== profile?.uid);
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-background/40" suppressHydrationWarning>
+    <div className="flex-1 flex flex-col h-full bg-background/40">
       <div className="h-16 flex items-center justify-between px-6 glass border-b border-white/5 z-10">
         <div className="flex items-center gap-3">
           <Avatar className="w-10 h-10 ring-2 ring-primary/20">
@@ -147,8 +144,8 @@ export function MessageArea({ roomId }: MessageAreaProps) {
           <div>
             <h2 className="font-semibold text-sm">{roomName}</h2>
             <p className="text-xs text-green-500 font-medium flex items-center gap-1.5">
-              <span className="block w-1.5 h-1.5 rounded-full bg-green-500"></span>
-              Live Channel
+              <span className="block w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+              Live Pulse
             </p>
           </div>
         </div>
@@ -160,7 +157,7 @@ export function MessageArea({ roomId }: MessageAreaProps) {
               <input 
                 autoFocus
                 className="bg-transparent border-none outline-none text-xs text-white w-32"
-                placeholder="Search..."
+                placeholder="Search messages..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -179,20 +176,25 @@ export function MessageArea({ roomId }: MessageAreaProps) {
         </div>
       </div>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-6 scroll-smooth">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-6 scroll-smooth custom-scrollbar">
         {loading ? (
           <div className="h-full flex flex-col items-center justify-center space-y-4">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground">Syncing cosmic data...</p>
+            <Loader2 className="w-8 h-8 animate-spin text-primary opacity-50" />
+            <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Synchronizing Sector...</p>
+          </div>
+        ) : filteredMessages.length === 0 ? (
+          <div className="h-full flex flex-col items-center justify-center text-center opacity-30">
+            <MessageSquare className="w-12 h-12 mb-4" />
+            <p className="text-sm">Sector silence. Initialize transmission.</p>
           </div>
         ) : (
           filteredMessages.map((msg) => {
             const isMe = msg.senderId === profile?.uid;
             
             return (
-              <div key={msg.id} className={cn("group flex gap-3 max-w-[80%] animate-in fade-in slide-in-from-bottom-2 duration-300", isMe ? "ml-auto flex-row-reverse" : "mr-auto")}>
+              <div key={msg.id} className={cn("group flex gap-3 max-w-[85%] animate-in fade-in slide-in-from-bottom-2 duration-300", isMe ? "ml-auto flex-row-reverse" : "mr-auto")}>
                 {!isMe && (
-                  <Avatar className="w-8 h-8 mt-auto">
+                  <Avatar className="w-8 h-8 mt-auto ring-1 ring-white/10">
                     <AvatarImage src={`https://picsum.photos/seed/${msg.senderId}/200/200`} />
                     <AvatarFallback>?</AvatarFallback>
                   </Avatar>
@@ -200,7 +202,7 @@ export function MessageArea({ roomId }: MessageAreaProps) {
                 <div className="flex flex-col gap-1">
                   {!isMe && <span className="text-[10px] text-muted-foreground ml-1 font-bold">{msg.senderName || 'Anonymous'}</span>}
                   
-                  <div className="relative">
+                  <div className="relative group/bubble">
                     <div className={cn(
                       "px-4 py-2.5 rounded-2xl text-sm shadow-sm transition-all",
                       isMe 
@@ -210,7 +212,6 @@ export function MessageArea({ roomId }: MessageAreaProps) {
                       {msg.text}
                     </div>
 
-                    {/* Reaction Bar */}
                     <div className={cn(
                       "absolute -bottom-2 flex items-center gap-1 transition-opacity",
                       isMe ? "left-0" : "right-0"
@@ -225,17 +226,16 @@ export function MessageArea({ roomId }: MessageAreaProps) {
                       ))}
                     </div>
 
-                    {/* Emoji Picker Popover */}
                     <div className={cn(
-                      "absolute top-0 opacity-0 group-hover:opacity-100 transition-opacity z-20",
+                      "absolute top-0 opacity-0 group-hover/bubble:opacity-100 transition-opacity z-20",
                       isMe ? "-left-12" : "-right-12"
                     )}>
-                      <div className="glass-darker border-white/10 p-1 rounded-full flex gap-1 shadow-xl">
+                      <div className="glass-darker border-white/10 p-1 rounded-full flex gap-1 shadow-2xl">
                         {EMOJI_OPTIONS.map(emoji => (
                           <button 
                             key={emoji} 
                             onClick={() => handleAddReaction(msg.id, emoji)}
-                            className="hover:scale-125 transition-transform p-0.5"
+                            className="hover:scale-150 transition-transform p-0.5"
                           >
                             {emoji}
                           </button>
@@ -244,7 +244,7 @@ export function MessageArea({ roomId }: MessageAreaProps) {
                     </div>
                   </div>
 
-                  <span className={cn("text-[10px] text-muted-foreground mt-1", isMe ? "text-right" : "text-left")}>
+                  <span className={cn("text-[10px] text-muted-foreground mt-1 opacity-60", isMe ? "text-right" : "text-left")}>
                     {msg.timestamp?.toDate 
                       ? new Date(msg.timestamp.toDate()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
                       : 'Syncing...'}
@@ -265,25 +265,23 @@ export function MessageArea({ roomId }: MessageAreaProps) {
         )}
         
         <div className="flex items-center gap-3 glass-card p-2 rounded-2xl border-white/10 ring-1 ring-white/5">
-          <Button variant="ghost" size="icon" className="text-muted-foreground hover:bg-white/5">
+          <Button variant="ghost" size="icon" className="text-muted-foreground hover:bg-white/5 rounded-full">
             <Paperclip className="w-5 h-5" />
           </Button>
           <Input 
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSendMessage(inputValue)}
-            placeholder={`Message #${roomName.toLowerCase().replace(/\s/g, '-')}`} 
+            placeholder={`Signal #${roomName.toLowerCase().replace(/\s/g, '-')}`} 
             className="flex-1 bg-transparent border-none shadow-none focus-visible:ring-0 text-sm h-10"
-            suppressHydrationWarning
           />
-          <Button variant="ghost" size="icon" className="text-muted-foreground hover:bg-white/5">
+          <Button variant="ghost" size="icon" className="text-muted-foreground hover:bg-white/5 rounded-full">
             <Smile className="w-5 h-5" />
           </Button>
           <Button 
             onClick={() => handleSendMessage(inputValue)}
             disabled={!inputValue.trim()}
-            className="bg-primary hover:bg-primary/90 text-white rounded-xl px-4 h-10"
-            suppressHydrationWarning
+            className="bg-primary hover:bg-primary/90 text-white rounded-xl px-4 h-10 shadow-lg shadow-primary/20"
           >
             <Send className="w-4 h-4 mr-2" />
             Send

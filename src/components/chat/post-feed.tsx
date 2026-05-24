@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -12,6 +13,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { generateCosmicMedia } from '@/ai/flows/generate-cosmic-media';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 
 interface Comment {
   id: string;
@@ -62,6 +64,19 @@ export function PostFeed() {
     return () => unsubscribe();
   }, []);
 
+  // Dedicated comment listeners to avoid frequent re-attaching
+  useEffect(() => {
+    if (!activeComments) return;
+
+    const q = query(collection(db, 'posts', activeComments, 'comments'), orderBy('createdAt', 'asc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const comments: Comment[] = [];
+      snapshot.forEach(doc => comments.push({ id: doc.id, ...doc.data() } as Comment));
+      setPostComments(prev => ({ ...prev, [activeComments]: comments }));
+    });
+    return () => unsubscribe();
+  }, [activeComments]);
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -81,7 +96,6 @@ export function PostFeed() {
     try {
       let finalUrl = uploadedMedia;
 
-      // If no upload, generate AI art if caption exists
       if (!finalUrl && newCaption.trim()) {
         const result = await generateCosmicMedia({ prompt: newCaption.trim() });
         finalUrl = result.mediaUrl;
@@ -141,22 +155,6 @@ export function PostFeed() {
     });
 
     setCommentText('');
-    toast({ title: "Comment Sent", description: "Your transmission reached the sector." });
-  };
-
-  const toggleComments = (postId: string) => {
-    if (activeComments === postId) {
-      setActiveComments(null);
-      return;
-    }
-
-    setActiveComments(postId);
-    const q = query(collection(db, 'posts', postId, 'comments'), orderBy('createdAt', 'asc'));
-    onSnapshot(q, (snapshot) => {
-      const comments: Comment[] = [];
-      snapshot.forEach(doc => comments.push({ id: doc.id, ...doc.data() } as Comment));
-      setPostComments(prev => ({ ...prev, [postId]: comments }));
-    });
   };
 
   const handleShare = (post: Post) => {
@@ -168,7 +166,7 @@ export function PostFeed() {
   if (!mounted) return null;
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 md:p-10 space-y-12 bg-transparent scroll-smooth no-scrollbar" suppressHydrationWarning>
+    <div className="flex-1 overflow-y-auto p-4 md:p-10 space-y-12 bg-transparent custom-scrollbar" suppressHydrationWarning>
       <div className="max-w-xl mx-auto space-y-12">
         <Card className="glass-card border-primary/20 p-6 rounded-[2rem] shadow-2xl">
           <div className="flex gap-4">
@@ -185,7 +183,7 @@ export function PostFeed() {
               />
               
               {uploadedMedia && (
-                <div className="relative rounded-2xl overflow-hidden border border-white/10 group">
+                <div className="relative rounded-2xl overflow-hidden border border-white/10 group animate-in zoom-in-95">
                   {mediaType === 'image' ? (
                     <img src={uploadedMedia} alt="Preview" className="w-full aspect-video object-cover" />
                   ) : (
@@ -212,7 +210,7 @@ export function PostFeed() {
                   <Button 
                     variant="ghost" 
                     size="icon" 
-                    className="text-muted-foreground hover:text-primary rounded-full"
+                    className="text-muted-foreground hover:text-primary rounded-full transition-transform hover:scale-110"
                     onClick={() => fileInputRef.current?.click()}
                   >
                     <ImageIcon className="w-5 h-5" />
@@ -220,14 +218,14 @@ export function PostFeed() {
                   <Button 
                     variant="ghost" 
                     size="icon" 
-                    className="text-muted-foreground hover:text-primary rounded-full"
+                    className="text-muted-foreground hover:text-primary rounded-full transition-transform hover:scale-110"
                     onClick={() => fileInputRef.current?.click()}
                   >
                     <Film className="w-5 h-5" />
                   </Button>
                   <div className="hidden sm:flex items-center gap-2 ml-2">
                     <Sparkles className="w-3 h-3 text-primary animate-pulse" />
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Forge with AI if no upload</p>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold opacity-60">Forge AI if no upload</p>
                   </div>
                 </div>
                 <Button 
@@ -236,10 +234,7 @@ export function PostFeed() {
                   className="bg-primary hover:bg-primary/90 rounded-full px-8 shadow-xl shadow-primary/20 h-10 transition-all active:scale-95 text-[11px] uppercase font-bold tracking-widest"
                 >
                   {isProcessing ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Manifesting...
-                    </>
+                    <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
                     <>
                       <Send className="w-4 h-4 mr-2" />
@@ -287,7 +282,7 @@ export function PostFeed() {
                         <img 
                           src={post.imageUrl} 
                           alt="Moment" 
-                          className="w-full h-full object-cover transition-transform duration-[3s] group-hover:scale-105"
+                          className="w-full h-full object-cover transition-transform duration-[4s] group-hover:scale-110"
                         />
                       )}
                     </div>
@@ -305,7 +300,7 @@ export function PostFeed() {
                         <span className="text-xs font-bold font-mono">{post.likes}</span>
                       </button>
                       <button 
-                        onClick={() => toggleComments(post.id)}
+                        onClick={() => setActiveComments(activeComments === post.id ? null : post.id)}
                         className={cn(
                           "flex items-center gap-2 transition-all hover:scale-110",
                           activeComments === post.id ? "text-primary" : "text-muted-foreground hover:text-primary"
@@ -326,30 +321,32 @@ export function PostFeed() {
                       <span className="text-muted-foreground/80">{post.caption}</span>
                     </div>
 
-                    {/* Comments Section */}
                     {activeComments === post.id && (
                       <motion.div 
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
                         className="w-full mt-4 space-y-4 pt-4 border-t border-white/5"
                       >
-                        <div className="max-h-48 overflow-y-auto space-y-3 no-scrollbar">
+                        <div className="max-h-48 overflow-y-auto space-y-3 custom-scrollbar pr-2">
                           {postComments[post.id]?.map(comment => (
-                            <div key={comment.id} className="flex gap-2 text-xs">
-                              <span className="font-bold text-primary">{comment.authorName}</span>
-                              <span className="text-muted-foreground">{comment.text}</span>
+                            <div key={comment.id} className="flex gap-2 text-xs items-start animate-in fade-in slide-in-from-left-2">
+                              <span className="font-bold text-primary shrink-0">{comment.authorName}</span>
+                              <span className="text-muted-foreground/90">{comment.text}</span>
                             </div>
                           ))}
+                          {(!postComments[post.id] || postComments[post.id].length === 0) && (
+                            <p className="text-[10px] text-muted-foreground italic">No sector commentary yet.</p>
+                          )}
                         </div>
                         <div className="flex gap-2">
                           <Input 
                             value={commentText}
                             onChange={(e) => setCommentText(e.target.value)}
-                            placeholder="Add a comment..."
-                            className="text-xs bg-white/5 border-white/10 h-8 focus:ring-primary"
+                            placeholder="Add commentary..."
+                            className="text-xs bg-white/5 border-white/10 h-9 focus:ring-primary rounded-xl"
                             onKeyDown={(e) => e.key === 'Enter' && handleAddComment(post.id)}
                           />
-                          <Button size="sm" onClick={() => handleAddComment(post.id)} className="h-8 bg-primary/20 text-primary hover:bg-primary/40">
+                          <Button size="icon" onClick={() => handleAddComment(post.id)} className="h-9 w-9 shrink-0 bg-primary/20 text-primary hover:bg-primary/40 rounded-xl">
                             <Send className="w-3 h-3" />
                           </Button>
                         </div>
@@ -362,9 +359,9 @@ export function PostFeed() {
           </AnimatePresence>
           
           {posts.length === 0 && !isProcessing && (
-            <div className="text-center py-32 space-y-6">
-              <Sparkles className="w-16 h-16 text-primary/10 mx-auto animate-pulse" />
-              <p className="text-muted-foreground text-sm font-medium tracking-widest uppercase">The cosmic network is silent. Be the first to broadcast.</p>
+            <div className="text-center py-32 space-y-6 opacity-30">
+              <Sparkles className="w-16 h-16 mx-auto animate-pulse" />
+              <p className="text-xs font-bold uppercase tracking-widest">The cosmic network is silent.</p>
             </div>
           )}
         </div>
@@ -372,5 +369,3 @@ export function PostFeed() {
     </div>
   );
 }
-
-import { cn } from '@/lib/utils';

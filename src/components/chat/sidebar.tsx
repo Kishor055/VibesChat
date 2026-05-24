@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -5,7 +6,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Hash, Plus, Settings, Search, LayoutGrid, MessageSquare, Sparkles, Check, Users, UserPlus, UserMinus, Radio, Share2, Loader2 } from 'lucide-react';
+import { Hash, Plus, Settings, Search, LayoutGrid, MessageSquare, Sparkles, Check, Users, Radio, Share2, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { 
@@ -15,10 +16,9 @@ import {
   addDoc, 
   serverTimestamp,
   where,
-  getDocs,
   doc,
   setDoc,
-  deleteDoc
+  orderBy
 } from 'firebase/firestore';
 import { db } from '@/firebase/config';
 import {
@@ -70,8 +70,7 @@ export function ChatSidebar({ activeView, onViewChange, activeRoomId, onRoomSele
   useEffect(() => {
     if (!profile) return;
 
-    // Listen to all public rooms and private rooms where current user is a participant
-    const q = query(collection(db, 'rooms'));
+    const q = query(collection(db, 'rooms'), orderBy('createdAt', 'desc'));
     const unsubscribeRooms = onSnapshot(q, (snapshot) => {
       const roomsData: Room[] = [
         { id: 'general', name: 'General Hub', type: 'group' },
@@ -86,7 +85,6 @@ export function ChatSidebar({ activeView, onViewChange, activeRoomId, onRoomSele
       setRooms(roomsData);
     });
 
-    // Listen to all users to display as "potential friends"
     const usersQ = query(collection(db, 'users'), where('uid', '!=', profile.uid));
     const unsubscribeUsers = onSnapshot(usersQ, (snapshot) => {
       const usersData: Friend[] = [];
@@ -121,8 +119,6 @@ export function ChatSidebar({ activeView, onViewChange, activeRoomId, onRoomSele
   const handleBroadcastInvite = () => {
     setIsBroadcasting(true);
     const inviteLink = `${window.location.origin}/join/${profile?.uid}`;
-    
-    // Simulate network broadcast delay
     setTimeout(() => {
       navigator.clipboard.writeText(inviteLink);
       toast({
@@ -130,31 +126,21 @@ export function ChatSidebar({ activeView, onViewChange, activeRoomId, onRoomSele
         description: "Sector-wide invitation pulse sent. Link copied to clipboard.",
       });
       setIsBroadcasting(false);
-    }, 1500);
+    }, 1200);
   };
 
   const startPrivateChat = async (friend: Friend) => {
     if (!profile) return;
     
-    // Check if room already exists
-    const existingRoom = rooms.find(r => 
-      r.type === 'private' && r.participants?.includes(friend.uid) && r.participants?.includes(profile.uid)
-    );
-
-    if (existingRoom) {
-      onRoomSelect(existingRoom.id);
-      onViewChange('chat');
-      return;
-    }
-
-    // Create new private room
     const roomId = [profile.uid, friend.uid].sort().join('-');
-    await setDoc(doc(db, 'rooms', roomId), {
-      name: `${profile.name} & ${friend.name}`,
+    const roomRef = doc(db, 'rooms', roomId);
+    
+    await setDoc(roomRef, {
+      name: `${friend.name}`,
       type: 'private',
       participants: [profile.uid, friend.uid],
       createdAt: serverTimestamp()
-    });
+    }, { merge: true });
     
     onRoomSelect(roomId);
     onViewChange('chat');
@@ -250,7 +236,6 @@ export function ChatSidebar({ activeView, onViewChange, activeRoomId, onRoomSele
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9 bg-white/5 border-white/10 focus:ring-primary/50 text-xs"
-            suppressHydrationWarning
           />
         </div>
       </div>
@@ -294,7 +279,7 @@ export function ChatSidebar({ activeView, onViewChange, activeRoomId, onRoomSele
                    disabled={isBroadcasting}
                  >
                    {isBroadcasting ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Share2 className="w-3 h-3 mr-1" />}
-                   Broadcast Invite
+                   Invite Link
                  </Button>
                </div>
                <div className="space-y-2">
@@ -326,18 +311,8 @@ export function ChatSidebar({ activeView, onViewChange, activeRoomId, onRoomSele
                  
                  {friends.length === 0 && (
                    <div className="p-6 glass-card rounded-2xl border-white/5 text-center space-y-4">
-                     <UserPlus className="w-10 h-10 mx-auto text-primary/40 animate-pulse" />
-                     <div>
-                       <p className="text-xs font-bold text-foreground">Network Silence</p>
-                       <p className="text-[10px] text-muted-foreground mt-1">The cosmic gap is wide. Invite others to establish visual and textual bridges.</p>
-                     </div>
-                     <Button 
-                       onClick={handleBroadcastInvite}
-                       disabled={isBroadcasting}
-                       className="w-full h-8 text-[10px] uppercase font-bold tracking-widest bg-primary/20 hover:bg-primary/40 text-primary border border-primary/20"
-                     >
-                       Broadcast Invitation
-                     </Button>
+                     <Loader2 className="w-8 h-8 mx-auto text-primary animate-spin opacity-40" />
+                     <p className="text-[10px] text-muted-foreground">Scanning for nearby explorers...</p>
                    </div>
                  )}
                </div>
@@ -370,7 +345,6 @@ export function ChatSidebar({ activeView, onViewChange, activeRoomId, onRoomSele
                     onChange={(e) => setTempName(e.target.value)} 
                     className="h-7 text-xs bg-white/10 border-none px-2 focus:ring-0"
                     autoFocus
-                    suppressHydrationWarning
                   />
                   <Button size="icon" variant="ghost" className="h-6 w-6" onClick={saveProfile}>
                     <Check className="w-3 h-3 text-green-500" />

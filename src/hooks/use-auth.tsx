@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { createContext, useContext, ReactNode, useState, useEffect } from 'react';
@@ -65,7 +66,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Persistent Firestore sync and listener
       const userDocRef = doc(db, 'users', currentProfile.uid);
       
-      // Update local profile with server data if it exists, otherwise create it
       const unsubscribe = onSnapshot(userDocRef, (snapshot) => {
         if (snapshot.exists()) {
           const serverData = snapshot.data() as UserProfile;
@@ -79,13 +79,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       });
 
-      // Heartbeat: Ensure status is online on mount/reconnect
+      // Heartbeat: Ensure status is online on mount
       updateDoc(userDocRef, {
         status: 'online',
         lastSeen: serverTimestamp()
-      }).catch(() => {
-        // Background sync by Firestore
-      });
+      }).catch(() => {});
 
       return unsubscribe;
     };
@@ -105,14 +103,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
     }
     
-    // Sync to Firestore non-blockingly
     const userDocRef = doc(db, 'users', profile.uid);
     updateDoc(userDocRef, {
       ...data,
       lastSeen: serverTimestamp()
-    }).catch(() => {
-      // Background sync handled by Firestore
-    });
+    }).catch(() => {});
   };
 
   const value = {

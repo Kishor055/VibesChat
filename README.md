@@ -1,45 +1,45 @@
+# PulseTalk | Cosmic Real-Time Hybrid Platform
 
-# PulseTalk | Cosmic Real-Time Platform
+PulseTalk is an enterprise-grade, high-performance real-time messaging and social hybrid platform built with a futuristic cosmic aesthetic. It combines the immediacy of real-time chat with a visual "Cosmic Feed" powered by generative AI.
 
-PulseTalk is a high-performance, enterprise-grade real-time messaging platform with a futuristic cosmic aesthetic. It features AI-driven smart replies, glassmorphism UI, and zero-friction entry via persistent guest identities.
+## 🚀 Architectural Overview
 
-## 🚀 Key Features
+PulseTalk leverages a cutting-edge serverless architecture optimized for low latency and high scalability.
 
-- **Real-Time Channels**: Scalable Firestore-backed messaging with instant delivery.
-- **Persistent Guest Identity**: Automatic, persistent user profiles without the friction of a traditional login gate.
-- **AI Smart Replies**: Context-aware suggestions powered by Google Gemini 2.5 Flash via Genkit.
-- **In-Chat Message Search**: Quickly find past cosmic transmissions with instant filtering.
-- **Channel Creation**: Dynamic room management allowing users to spin up new communication hubs.
-- **Glassmorphism UI**: High-fidelity visual interface built with Tailwind CSS, Shadcn UI, and Framer Motion.
-- **Hydration Safe**: Robust mounting strategies to handle SSR discrepancies gracefully.
+- **Frontend**: React 19 / Next.js 15 (App Router)
+- **Real-Time Engine**: Firebase Firestore with persistent listeners
+- **AI Integration**: Google Genkit + Gemini 2.5 Flash + Imagen 3
+- **Identity**: Persistent Guest Identity system with local persistence and Firestore sync
+- **Styling**: Tailwind CSS with custom Glassmorphism primitives
+- **Animations**: Framer Motion for high-fidelity interactive feedback
 
-## 🛠 Tech Stack
+## ✨ Core Features
 
-- **Frontend**: Next.js 15 (App Router), React 19, TypeScript
-- **Backend/Database**: Firebase Firestore, Firebase Authentication (scaffolded)
-- **AI Logic**: Genkit v1.x with Google Gemini 2.5 Flash
-- **Styling**: Tailwind CSS, Framer Motion, Lucide Icons
-- **Components**: Shadcn UI (Radix UI primitives)
+### 1. Cosmic Social Feed
+- **Manifest Moments**: Create visual posts using AI. Input a prompt, and Google's Imagen model generates a high-fidelity cosmic illustration.
+- **Social Interaction**: Like and react to transmissions from other explorers across the network.
+- **Visual-First UI**: High-resolution media presentation with dynamic gradients and blur effects.
 
-## 📁 Architecture
+### 2. High-Performance Chat
+- **Real-Time Channels**: Scalable messaging via Firestore, supporting instant delivery and global presence.
+- **Smart Replies**: Context-aware AI suggestions powered by Gemini 2.5, enabling rapid communication.
+- **In-Chat Search**: Instant filtering of transmissions using full-text search primitives.
 
-```text
-src/
-├── ai/              # Genkit AI flows (Smart Replies)
-├── app/             # Next.js App Router (Pages & Layouts)
-├── components/      # Modular UI (Chat, Sidebar, UI primitives)
-├── firebase/        # Firebase initialization & SDK configuration
-├── hooks/           # Custom React hooks (Auth, Presence)
-├── lib/             # Utilities and shared assets
-└── styles/          # Global CSS and Tailwind configs
-```
+### 3. Identity & Presence
+- **Zero-Friction Entry**: Persistent guest identities allow immediate network access without traditional login gates.
+- **Live Indicators**: Real-time online/offline status reflecting network activity.
 
-## 🔒 Security & Performance
+## 🛠 Technical Specifications
 
-- **Optimistic Updates**: Local state reflects message sends instantly before server confirmation.
-- **Real-Time Presence**: Online status indicators reflect live network activity.
-- **Filtered Streams**: Efficient Firestore queries for low-latency communication.
-- **Hydration Resilience**: Client components are guarded with mounting logic to prevent UI jumps.
+### Hydration Resilience
+The platform utilizes a strict `mounted` state pattern across all client components to resolve the challenges of SSR in Next.js. This ensures that browser-specific data (like local time formatting or browser-injected attributes) does not trigger hydration mismatches.
+
+### Optimized Mutations
+Following enterprise patterns, Firestore mutations (`setDoc`, `addDoc`) are executed asynchronously to prioritize UI responsiveness (Optimistic Updates). Errors are handled centrally via a dedicated event emitter architecture.
+
+### AI Flows (Genkit)
+- `suggestSmartReplies`: Analyzes conversation context to provide 3-5 relevant suggestions.
+- `generateCosmicMedia`: Transforms text prompts into professional-grade space digital art.
 
 ---
 

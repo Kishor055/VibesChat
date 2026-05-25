@@ -38,6 +38,3 @@ VibeChat implements a strict `mounted` state pattern across all client-side comp
 - `suggestSmartReplies`: Analyzes channel context for rapid communication.
 
 ---
-
-*VibeChat: Bridging the cosmic gap through AI-driven connectivity.*
-# VibesChat

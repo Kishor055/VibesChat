@@ -40,3 +40,4 @@ VibeChat implements a strict `mounted` state pattern across all client-side comp
 ---
 
 *VibeChat: Bridging the cosmic gap through AI-driven connectivity.*
+# VibesChat
